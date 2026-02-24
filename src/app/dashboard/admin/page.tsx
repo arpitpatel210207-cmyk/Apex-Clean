@@ -1,0 +1,493 @@
+"use client";
+
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { CreateModal } from "@/components/ui/create-modal";
+import { Dropdown } from "@/components/ui/dropdown";
+import { Switch } from "@/components/ui/switch";
+import { Mail, Pencil, Plus, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+
+type Admin = {
+  id: number;
+  name: string;
+  email: string;
+  role: "SUPER_ADMIN" | "SUB_ADMIN";
+  status: "ACTIVE" | "INACTIVE";
+  created: string;
+};
+
+type AdminCellCtx = {
+  admin: Admin;
+  onToggle: () => void;
+  onDelete: () => void;
+};
+
+type AdminColumn = {
+  id: string;
+  header: string;
+  className?: string;
+  cell: (ctx: AdminCellCtx) => ReactNode;
+};
+
+type ConfirmState =
+  | {
+      mode: "toggle";
+      adminId: number;
+      adminName: string;
+      nextStatus: "ACTIVE" | "INACTIVE";
+    }
+  | {
+      mode: "delete";
+      adminId: number;
+      adminName: string;
+    };
+
+const ADMINS: Admin[] = [
+  {
+    id: 1,
+    name: "Arpit Patel",
+    email: "arpit.patel@nexus.in",
+    role: "SUPER_ADMIN",
+    status: "ACTIVE",
+    created: "2025-02-01",
+  },
+  {
+    id: 2,
+    name: "Kavya Mehta",
+    email: "kavyaisop@nexus.in",
+    role: "SUB_ADMIN",
+    status: "ACTIVE",
+    created: "2025-02-02",
+  },
+  {
+    id: 3,
+    name: "Rashi Shah",
+    email: "rashishah@nexus.in",
+    role: "SUB_ADMIN",
+    status: "INACTIVE",
+    created: "2025-02-03",
+  },
+  {
+    id: 4,
+    name: "Het Shah",
+    email: "het.shah@nexus.in",
+    role: "SUB_ADMIN",
+    status: "INACTIVE",
+    created: "2025-02-03",
+  },
+];
+
+function createAdminColumnHelper() {
+  return {
+    accessor: <K extends keyof Admin>(
+      key: K,
+      options: {
+        header: string;
+        className?: string;
+        cell?: (value: Admin[K], admin: Admin) => ReactNode;
+      },
+    ): AdminColumn => ({
+      id: String(key),
+      header: options.header,
+      className: options.className,
+      cell: ({ admin }) =>
+        options.cell ? options.cell(admin[key], admin) : String(admin[key]),
+    }),
+    display: (options: {
+      id: string;
+      header: string;
+      className?: string;
+      cell: (ctx: AdminCellCtx) => ReactNode;
+    }): AdminColumn => ({
+      id: options.id,
+      header: options.header,
+      className: options.className,
+      cell: options.cell,
+    }),
+  };
+}
+
+const column = createAdminColumnHelper();
+
+const adminColumns: AdminColumn[] = [
+  column.display({
+    id: "admin",
+    header: "Admin",
+    cell: ({ admin }) => {
+      const initials = admin.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("");
+      return (
+        <div className="flex min-w-[220px] items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#2f4250]/55 bg-gradient-to-br from-cyan-300/90 to-cyan-500/70 text-sm font-semibold text-[#0f172a]">
+            {initials}
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-text">{admin.name}</p>
+            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-mutetext">
+              <Mail size={12} />
+              {admin.email}
+            </p>
+          </div>
+        </div>
+      );
+    },
+  }),
+  column.accessor("role", {
+    header: "Role",
+    cell: (value) => (
+      <div className="flex items-center">
+        <span className="rounded-full border border-[#2f4250]/55 bg-[rgba(111,196,231,0.08)] px-3 py-1 text-xs font-medium text-[#b9deee]">
+          {value === "SUPER_ADMIN" ? "Super Admin" : "Sub Admin"}
+        </span>
+      </div>
+    ),
+  }),
+  column.accessor("created", {
+    header: "Created",
+    cell: (value) => <span className="text-xs text-mutetext">Created {value}</span>,
+  }),
+  column.display({
+    id: "status",
+    header: "Status",
+    className: "text-center",
+    cell: ({ admin, onToggle }) => (
+      <div className="flex items-center justify-start md:justify-center">
+        <Switch checked={admin.status === "ACTIVE"} onChange={onToggle} />
+      </div>
+    ),
+  }),
+  column.display({
+    id: "actions",
+    header: "",
+    className: "text-right",
+    cell: ({ admin, onDelete }) => (
+      <div className="flex items-center justify-start gap-3 md:justify-end">
+        <Link
+          href={`/dashboard/admin/${admin.id}/edit`}
+          className="inline-flex h-9 w-11 items-center justify-center rounded-2xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.14)] text-[#b9deee] transition hover:bg-[rgba(111,196,231,0.2)]"
+          aria-label={`Edit ${admin.name}`}
+        >
+          <Pencil size={16} />
+        </Link>
+        <button
+          onClick={onDelete}
+          className="inline-flex h-9 w-11 items-center justify-center rounded-2xl border border-[#5b3035]/55 bg-[#ef4444] text-white shadow-[0_10px_24px_rgba(239,68,68,0.3)] transition hover:bg-[#dc3a3a] active:scale-[0.98]"
+          aria-label={`Delete ${admin.name}`}
+        >
+          <Trash2 size={20} strokeWidth={2.2} />
+        </button>
+      </div>
+    ),
+  }),
+];
+
+export default function AdminsPage() {
+  const [admins, setAdmins] = useState<Admin[]>(ADMINS);
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDraft, setCreateDraft] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "" as "" | Admin["role"],
+  });
+  const [createError, setCreateError] = useState("");
+
+  const stats = useMemo(() => {
+    const total = admins.length;
+    const active = admins.filter((admin) => admin.status === "ACTIVE").length;
+    const superAdmins = admins.filter((admin) => admin.role === "SUPER_ADMIN").length;
+    return { total, active, superAdmins };
+  }, [admins]);
+
+  function toggleStatus(id: number) {
+    setAdmins((prev) =>
+      prev.map((admin) =>
+        admin.id === id
+          ? {
+              ...admin,
+              status: admin.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+            }
+          : admin,
+      ),
+    );
+  }
+
+  function removeAdmin(id: number) {
+    setAdmins((prev) => prev.filter((admin) => admin.id !== id));
+  }
+
+  function addAdmin() {
+    const name = createDraft.name.trim();
+    const email = createDraft.email.trim();
+    const { password, confirmPassword, role } = createDraft;
+
+    if (!name || !email || !password || !confirmPassword || !role) {
+      setCreateError("All fields are required.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setCreateError("Password and confirm password must match.");
+      return;
+    }
+
+    setAdmins((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        name,
+        email,
+        role,
+        status: "ACTIVE",
+        created: "2026-02-21",
+      },
+    ]);
+    setCreateOpen(false);
+    setCreateDraft({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "",
+    });
+    setCreateError("");
+  }
+
+  function handleConfirmAction() {
+    if (!confirmState) return;
+
+    if (confirmState.mode === "toggle") {
+      toggleStatus(confirmState.adminId);
+    } else {
+      removeAdmin(confirmState.adminId);
+    }
+
+    setConfirmState(null);
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="page-heading">Admins</h1>
+            <p className="mt-2 text-[14px] text-mutetext">
+              Manage system administrators and access levels
+            </p>
+          </div>
+          
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <StatCard label="Total Admins" value={stats.total} icon={Users} />
+          <StatCard label="Active Admins" value={stats.active} icon={ShieldCheck} />
+          <StatCard label="Super Admins" value={stats.superAdmins} icon={UserCog} />
+        </div>
+
+        <Card className="overflow-hidden border border-[#2a3a45]/55 bg-card">
+          <div className="flex items-center justify-between border-b border-[#2a3a45]/35 px-5 py-4">
+            <span className="text-sm font-semibold text-text"></span>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus size={16} />
+              Add Admin
+            </Button>
+          </div>
+          
+          <div className="hidden md:grid md:grid-cols-[2.2fr_1fr_1fr_0.9fr_1fr] border-b border-[#2a3a45]/35 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-mutetext/85">
+            {adminColumns.map((column) => (
+              <span key={column.id} className={column.className}>
+                {column.header}
+              </span>
+            ))}
+          </div>
+          <div className="divide-y divide-[#2a3a45]/35">
+            {admins.map((admin) => (
+              <AdminRow
+                key={admin.id}
+                admin={admin}
+                columns={adminColumns}
+                onToggle={() => {
+                  const nextStatus = admin.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                  setConfirmState({
+                    mode: "toggle",
+                    adminId: admin.id,
+                    adminName: admin.name,
+                    nextStatus,
+                  });
+                }}
+                onDelete={() => {
+                  setConfirmState({
+                    mode: "delete",
+                    adminId: admin.id,
+                    adminName: admin.name,
+                  });
+                }}
+              />
+            ))}
+          </div>
+          {admins.length === 0 ? (
+            <CardContent className="py-10 text-center text-sm text-mutetext">
+              No admins found.
+            </CardContent>
+          ) : null}
+        </Card>
+      </div>
+
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={
+          confirmState?.mode === "delete" ? "Delete Admin?" : "Change Admin Status?"
+        }
+        description={
+          confirmState?.mode === "delete"
+            ? `This will remove ${confirmState.adminName} from the admin directory.`
+            : `Change ${confirmState?.adminName ?? "this admin"} to ${
+                confirmState?.mode === "toggle" ? confirmState.nextStatus : ""
+              }?`
+        }
+        confirmLabel={confirmState?.mode === "delete" ? "Delete" : "Confirm"}
+        cancelLabel="Cancel"
+        confirmTone={confirmState?.mode === "delete" ? "danger" : "default"}
+        onCancel={() => setConfirmState(null)}
+        onConfirm={handleConfirmAction}
+      />
+
+      <CreateModal open={createOpen} title="Add Admin" onClose={() => setCreateOpen(false)}>
+        <input
+          className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+          placeholder="Name"
+          value={createDraft.name}
+          onChange={(event) =>
+            setCreateDraft((prev) => ({ ...prev, name: event.target.value }))
+          }
+        />
+        <input
+          type="email"
+          className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+          placeholder="Email"
+          value={createDraft.email}
+          onChange={(event) =>
+            setCreateDraft((prev) => ({ ...prev, email: event.target.value }))
+          }
+        />
+        <input
+          type="password"
+          className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+          placeholder="Password"
+          value={createDraft.password}
+          onChange={(event) =>
+            setCreateDraft((prev) => ({ ...prev, password: event.target.value }))
+          }
+        />
+        <input
+          type="password"
+          className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+          placeholder="Confirm Password"
+          value={createDraft.confirmPassword}
+          onChange={(event) =>
+            setCreateDraft((prev) => ({ ...prev, confirmPassword: event.target.value }))
+          }
+        />
+        <Dropdown
+          value={createDraft.role}
+          options={[
+            { label: "Super Admin", value: "SUPER_ADMIN" },
+            { label: "Sub Admin", value: "SUB_ADMIN" },
+          ]}
+          placeholder="Select role"
+          inputClassName="!border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+          onChange={(value) =>
+            setCreateDraft((prev) => ({
+              ...prev,
+              role: value as Admin["role"],
+            }))
+          }
+        />
+        {createError ? <p className="text-xs text-rose-300">{createError}</p> : null}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <Button variant="secondary" onClick={() => setCreateOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={addAdmin}>
+            Create Admin
+          </Button>
+        </div>
+      </CreateModal>
+    </>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  icon: ComponentType<{ size?: number; className?: string }>;
+}) {
+  const [countValue, setCountValue] = useState(0);
+
+  useEffect(() => {
+    let frame = 0;
+    let startAt = 0;
+    const durationMs = 1000;
+
+    const step = (now: number) => {
+      if (!startAt) startAt = now;
+      const progress = Math.min((now - startAt) / durationMs, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCountValue(Math.round(value * eased));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [value]);
+
+  return (
+    <Card className="rounded-2xl border border-border/35 bg-card">
+      <CardContent className="flex items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.08em] text-mutetext">{label}</p>
+          <p className="mt-1 text-2xl font-semibold text-text">
+            {countValue.toLocaleString("en-US")}
+          </p>
+        </div>
+        <span className="grid h-10 w-10 place-items-center rounded-xl border border-border/35 bg-card2/60">
+          <Icon size={18} className="text-brand" />
+        </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdminRow({
+  admin,
+  columns,
+  onToggle,
+  onDelete,
+}: {
+  admin: Admin;
+  columns: AdminColumn[];
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <CardContent className="p-4 md:px-5">
+      <div className="grid gap-4 md:grid-cols-[2.2fr_1fr_1fr_0.9fr_1fr] md:items-center">
+        {columns.map((column) => (
+          <div key={column.id}>{column.cell({ admin, onToggle, onDelete })}</div>
+        ))}
+      </div>
+    </CardContent>
+  );
+}
