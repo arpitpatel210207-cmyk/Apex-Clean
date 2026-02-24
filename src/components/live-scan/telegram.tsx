@@ -2,7 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Send, Users } from "lucide-react";
-import { button } from "../ui/button";
+import { Button } from "../ui/button";
 
 export default function TelegramScan() {
   return (
