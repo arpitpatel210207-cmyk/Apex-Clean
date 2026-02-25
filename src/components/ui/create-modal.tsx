@@ -19,7 +19,7 @@ export  function CreateModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[260] flex items-start justify-center overflow-hidden p-4 pt-20 sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-[260] flex items-start justify-center overflow-hidden p-3 pt-14 sm:items-center sm:p-6">
 
       {/* BACKDROP */}
       <div
@@ -29,7 +29,7 @@ export  function CreateModal({
 
       {/* MODAL */}
       <div
-        className="animate-modal-pop modal-panel relative w-full max-w-lg overflow-hidden rounded-2xl p-6"
+        className="animate-modal-pop modal-panel relative w-full max-w-lg overflow-hidden rounded-2xl p-4 sm:p-6"
       >
         {/* HEADER */}
         <div className="flex items-center justify-between mb-4">

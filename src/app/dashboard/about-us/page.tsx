@@ -30,13 +30,13 @@ const points = [
 export default function AboutPage() {
   return (
     <div className="space-y-6 pb-6">
-      <section className="surface animate-stagger-in rounded-3xl border border-[#2a3a45]/55 p-7 md:p-9">
+      <section className="surface animate-stagger-in rounded-3xl border border-[#2a3a45]/55 p-5 sm:p-7 md:p-9">
         <div className="inline-flex items-center gap-2 rounded-full border border-[#2f4250]/55 bg-[rgba(111,196,231,0.12)] px-3 py-1 text-xs uppercase tracking-[0.12em] text-brand">
           <Activity size={14} />
           About Apex Clean
         </div>
 
-        <h1 className="page-heading mt-4 text-text">Simple, fast AI threat monitoring</h1>
+        <h1 className="page-heading mt-4 text-text text-3xl sm:text-[34px]">Simple, fast AI threat monitoring</h1>
 
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-mutetext md:text-base">
           Apex Clean helps teams detect and track illicit drug activity across social

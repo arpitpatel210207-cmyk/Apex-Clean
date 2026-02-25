@@ -114,7 +114,7 @@ export default function ScanHistory() {
   const totalClean = filteredScans.reduce((s, x) => s + x.clean, 0);
   const successRate = totalMessages ? Math.round((totalClean / totalMessages) * 100) : 0;
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
 
       {/* HEADER */}
       <div>
@@ -125,7 +125,7 @@ export default function ScanHistory() {
       </div>
 
       {/* STATS */}
-      <div className="grid md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:gap-5 lg:gap-6">
         <Stat title="Total Scans" value={totalScans} />
         <Stat title="Threats Found" value={totalThreats} danger />
         <Stat title="Analyzed" value={totalMessages} />
@@ -134,14 +134,14 @@ export default function ScanHistory() {
 
       {/* FILTER BAR */}
       <Card
-        className="p-4 flex flex-wrap gap-4 items-center border"
+        className="flex flex-wrap items-center gap-3 border p-3 sm:gap-4 sm:p-4"
         style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
       >
 
      <input
   value={query}
   onChange={(e) => setQuery(e.target.value)}
-  className="input flex-1 min-w-[160px] focus:ring-0"
+  className="input min-w-0 flex-1 sm:min-w-[160px] focus:ring-0"
   placeholder="Search scans..."
   style={{ borderColor: "rgba(82,82,91,0.35)" }}
 />
@@ -152,7 +152,7 @@ export default function ScanHistory() {
   value={platform}
   options={platformOptions}
   onChange={setPlatform}
-  className="w-44"
+  className="w-full sm:w-44"
   inputClassName="border-[#2a3a45]/60 bg-[#0c141d] focus:border-[#355466]/55 focus:ring-0"
   placeholder="All Platforms"
 />
@@ -163,14 +163,14 @@ export default function ScanHistory() {
 
         <button
           onClick={() => setOpenExport(true)}
-          className="bg-[#6fc4e7] text-[#121212] border border-[#6fc4e7]/60 px-6 py-3 rounded-xl font-medium hover:opacity-90 transition"
+          className="w-full rounded-xl border border-[#6fc4e7]/60 bg-[#6fc4e7] px-4 py-2.5 font-medium text-[#121212] transition hover:opacity-90 sm:w-auto sm:px-6 sm:py-3"
         >
           Export
         </button>
       </Card>
 
       {/* SCAN CARDS */}
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {filteredScans.map(scan => (
           <ScanCard
             key={scan.id}
@@ -237,7 +237,7 @@ function Stat({
       <div>
         <p className="text-[12px] font-medium tracking-[0.04em] text-mutetext">{title}</p>
 
-        <p className={`mt-1 text-[26px] font-bold leading-none tabular-nums ${valueColor}`}>
+        <p className={`mt-1 text-[22px] font-bold leading-none tabular-nums sm:text-[26px] ${valueColor}`}>
           {value}
         </p>
       </div>
@@ -288,10 +288,10 @@ function ScanCard({
 
         {/* STATS */}
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <GlassStat label="MESSAGES SCANNED" value={scan.messages} trend={scan.deltaMessages} color="brand" />
-          <GlassStat label="THREATS DETECTED" value={scan.threats} trend={scan.deltaThreats} color="danger" />
-          <GlassStat label="SUSPICIOUS ACTIVITY" value={scan.suspicious} trend={scan.deltaSuspicious} color="warning" />
-          <GlassStat label="CLEAN RECORDS" value={scan.clean} trend={scan.deltaClean} color="success" />
+          <GlassStat label="MESSAGES SCANNED" value={scan.messages} color="brand" />
+          <GlassStat label="THREATS DETECTED" value={scan.threats} color="danger" />
+          <GlassStat label="SUSPICIOUS ACTIVITY" value={scan.suspicious} color="warning" />
+          <GlassStat label="CLEAN RECORDS" value={scan.clean} color="success" />
         </div>
 
         {/* FOOTER */}
@@ -331,12 +331,10 @@ function ScanCard({
 function GlassStat({
   label,
   value,
-  trend,
   color,
 }: {
   label: string;
   value: number;
-  trend: string;
   color: "brand" | "danger" | "warning" | "success";
 }) {
 
@@ -353,10 +351,9 @@ function GlassStat({
       style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)" }}
     >
       <div className="flex items-end justify-center gap-2">
-        <p className={`text-[36px] font-extrabold leading-none tabular-nums ${textColors[color]}`}>
+        <p className={`text-[28px] font-extrabold leading-none tabular-nums sm:text-[36px] ${textColors[color]}`}>
           {value}
         </p>
-        <span className={`mb-1 text-[9px] font-bold ${textColors[color]}`}>{trend}</span>
       </div>
       <p className="mt-3 text-[10px] font-extrabold tracking-[0.08em] text-slate-400">
         {label}

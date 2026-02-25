@@ -13,7 +13,7 @@ export default function GeoPage({
   const { region } = use(params); // ✅ unwrap promise
 
   return (
-    <div className="h-[calc(100vh-140px)] w-full">
+    <div className="h-[calc(100dvh-128px)] min-h-[420px] w-full sm:h-[calc(100vh-140px)]">
       <LeafletMap region={region} />
     </div>
   );

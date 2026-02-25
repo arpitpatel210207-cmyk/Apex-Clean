@@ -144,14 +144,14 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6 sm:space-y-8 lg:space-y-10">
 
       <h1 className="page-heading text-text">
         Dashboard
       </h1>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-4 lg:gap-6">
         {statCards.map((card, index) => (
           (() => {
             const computed = getTrend(card.current, card.previous, {
@@ -177,7 +177,7 @@ export default function DashboardPage() {
 
 
       {/* PLATFORMS */}
-    <div className="flex gap-4 px-2 py-4">
+    <div className="grid grid-cols-1 gap-4 py-2 sm:py-4 md:grid-cols-2 xl:grid-cols-3">
 
   <PlatformCard
     title="Reddit Monitoring"

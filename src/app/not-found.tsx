@@ -5,12 +5,12 @@ export default function NotFound() {
   const routeHash = "/unknown/route";
 
   return (
-    <main className="min-h-screen bg-bg px-6 py-10">
+    <main className="min-h-screen bg-bg px-3 py-6 sm:px-6 sm:py-10">
       <section className="mx-auto flex min-h-[80vh] w-full max-w-3xl items-center justify-center">
-        <div className="surface w-full max-w-[900px] rounded-[22px] p-10 md:p-12">
+        <div className="surface w-full max-w-[900px] rounded-[22px] p-5 sm:p-8 md:p-12">
           <div className="mx-auto max-w-[760px]">
             <div className="mb-6 rounded-2xl border border-border/60 bg-card2/30 px-4 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),inset_0_-1px_0_rgba(0,0,0,0.45)]">
-              <svg viewBox="0 0 760 160" className="h-[150px] w-full">
+              <svg viewBox="0 0 760 160" className="h-[92px] w-full sm:h-[120px] md:h-[150px]">
                 <path d="M16 124 H744" stroke="rgba(230,245,250,0.14)" strokeWidth="1.5" />
 
                 <path
@@ -42,10 +42,10 @@ export default function NotFound() {
               </svg>
             </div>
 
-            <h1 className="text-center text-[42px] font-semibold leading-none text-[#6fc4e7]">
+            <h1 className="text-center text-[30px] font-semibold leading-none text-[#6fc4e7] sm:text-[36px] md:text-[42px]">
               404 - Trace Not Found
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-[16px] text-[#e6f5fa]">
+            <p className="mx-auto mt-4 max-w-2xl text-center text-[14px] text-[#e6f5fa] sm:text-[16px]">
               The requested page has no active trace in the monitored intelligence stream.
             </p>
 

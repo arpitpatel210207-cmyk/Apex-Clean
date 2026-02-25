@@ -303,6 +303,18 @@ header .text-mutetext {
   font-family: "Ramsina", "Manrope", sans-serif !important;
 }
 
+@media (max-width: 640px) {
+  .page-heading {
+    font-size: 28px;
+    line-height: 1.2;
+  }
+
+  .topbar-title {
+    font-size: 28px;
+    line-height: 1.2;
+  }
+}
+
 .topbar-merged-glass {
   background: linear-gradient(
     180deg,

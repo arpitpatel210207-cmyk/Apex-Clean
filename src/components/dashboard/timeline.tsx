@@ -163,7 +163,7 @@ export function TimelineChart() {
         >
           Weekly Activity
         </GradientText>
-        <div className="flex items-center gap-2 text-[11px] text-mutetext/90">
+        <div className="hidden items-center gap-2 text-[11px] text-mutetext/90 sm:flex">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(174,222,241,0.16)] bg-[rgba(18,22,28,0.55)] px-2 py-1">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: chartColors.scans }} />
             Scans
@@ -179,7 +179,7 @@ export function TimelineChart() {
         </div>
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px]">
+      <div className="mb-2 hidden flex-wrap items-center gap-2 text-[11px] sm:flex">
         <span className="rounded-md border border-[rgba(34,211,238,0.28)] bg-[rgba(34,211,238,0.12)] px-2 py-1 font-medium text-[#7de3f2]">
           Scans {formatDelta(lastDay.scans, firstDay.scans)}
         </span>
