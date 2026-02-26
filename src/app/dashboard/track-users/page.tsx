@@ -64,7 +64,7 @@ export default function TrackUser() {
   }, [platform, query]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <h1 className="page-heading">Track Flagged Users</h1>
         <p className="mt-2 text-mutetext">
@@ -72,7 +72,7 @@ export default function TrackUser() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <TopStat title="Flagged Users" value={filteredUsers.length} tone="red" />
         <TopStat
           title="Unique Platforms"
@@ -90,7 +90,7 @@ export default function TrackUser() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="input h-11 min-w-[220px] flex-1 focus:ring-0"
+            className="input h-11 min-w-0 flex-1 sm:min-w-[220px] focus:ring-0"
             placeholder="Search username, platform or location..."
             style={{ borderColor: "rgba(82,82,91,0.35)" }}
           />
@@ -98,7 +98,7 @@ export default function TrackUser() {
             value={platform}
             options={platformOptions}
             onChange={setPlatform}
-            className="w-48"
+            className="w-full sm:w-48"
             inputClassName="h-11 border-[#2a3a45]/60 focus:border-[#355466]/55 focus:ring-0"
             placeholder="All Platforms"
           />

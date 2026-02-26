@@ -42,13 +42,13 @@ export function ConfirmDialog({
         className="absolute inset-0 bg-transparent"
       />
 
-      <div className="relative w-full max-w-[500px] rounded-2xl border border-white/12 bg-[rgba(14,16,20,0.98)] px-6 py-5 shadow-[0_28px_70px_rgba(0,0,0,0.58)]">
+      <div className="relative w-full max-w-[500px] rounded-2xl border border-white/12 bg-[rgba(14,16,20,0.98)] px-4 py-4 shadow-[0_28px_70px_rgba(0,0,0,0.58)] sm:px-6 sm:py-5">
         <h3 className="text-[20px] font-semibold leading-tight text-text">{title}</h3>
         {description ? (
           <p className="mt-2 text-[12px] leading-relaxed text-mutetext">{description}</p>
         ) : null}
 
-        <div className="mt-6 flex items-center justify-end gap-3">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <button
             type="button"
             onClick={onCancel}

@@ -122,7 +122,7 @@ const adminColumns: AdminColumn[] = [
         .map((n) => n[0])
         .join("");
       return (
-        <div className="flex min-w-[220px] items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#2f4250]/55 bg-gradient-to-br from-cyan-300/90 to-cyan-500/70 text-sm font-semibold text-[#0f172a]">
             {initials}
           </div>
@@ -273,7 +273,7 @@ export default function AdminsPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-5 sm:space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="page-heading">Admins</h1>
@@ -284,29 +284,54 @@ export default function AdminsPage() {
           
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <StatCard label="Total Admins" value={stats.total} icon={Users} />
           <StatCard label="Active Admins" value={stats.active} icon={ShieldCheck} />
           <StatCard label="Super Admins" value={stats.superAdmins} icon={UserCog} />
         </div>
 
         <Card className="overflow-hidden border border-[#2a3a45]/55 bg-card">
-          <div className="flex items-center justify-between border-b border-[#2a3a45]/35 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-[#2a3a45]/35 px-3 py-3 sm:px-5 sm:py-4">
             <span className="text-sm font-semibold text-text"></span>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus size={16} />
               Add Admin
             </Button>
           </div>
+
+          <div className="space-y-3 p-3 md:hidden">
+            {admins.map((admin) => (
+              <AdminMobileCard
+                key={admin.id}
+                admin={admin}
+                onToggle={() => {
+                  const nextStatus = admin.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                  setConfirmState({
+                    mode: "toggle",
+                    adminId: admin.id,
+                    adminName: admin.name,
+                    nextStatus,
+                  });
+                }}
+                onDelete={() => {
+                  setConfirmState({
+                    mode: "delete",
+                    adminId: admin.id,
+                    adminName: admin.name,
+                  });
+                }}
+              />
+            ))}
+          </div>
           
-          <div className="hidden md:grid md:grid-cols-[2.2fr_1fr_1fr_0.9fr_1fr] border-b border-[#2a3a45]/35 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-mutetext/85">
+          <div className="hidden md:grid md:grid-cols-[2.2fr_1fr_1fr_0.9fr_1fr] border-b border-[#2a3a45]/35 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-mutetext/85 sm:px-5">
             {adminColumns.map((column) => (
               <span key={column.id} className={column.className}>
                 {column.header}
               </span>
             ))}
           </div>
-          <div className="divide-y divide-[#2a3a45]/35">
+          <div className="hidden divide-y divide-[#2a3a45]/35 md:block">
             {admins.map((admin) => (
               <AdminRow
                 key={admin.id}
@@ -410,7 +435,7 @@ export default function AdminsPage() {
           }
         />
         {createError ? <p className="text-xs text-rose-300">{createError}</p> : null}
-        <div className="flex items-center justify-end gap-2 pt-1">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={() => setCreateOpen(false)}>
             Cancel
           </Button>
@@ -482,12 +507,71 @@ function AdminRow({
   onDelete: () => void;
 }) {
   return (
-    <CardContent className="p-4 md:px-5">
+    <CardContent className="p-3 sm:p-4 md:px-5">
       <div className="grid gap-4 md:grid-cols-[2.2fr_1fr_1fr_0.9fr_1fr] md:items-center">
         {columns.map((column) => (
           <div key={column.id}>{column.cell({ admin, onToggle, onDelete })}</div>
         ))}
       </div>
     </CardContent>
+  );
+}
+
+function AdminMobileCard({
+  admin,
+  onToggle,
+  onDelete,
+}: {
+  admin: Admin;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const initials = admin.name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2);
+
+  return (
+    <Card className="rounded-2xl border border-[#2a3a45]/55 bg-[#11171f]">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#2f4250]/55 bg-gradient-to-br from-cyan-300/90 to-cyan-500/70 text-sm font-semibold text-[#0f172a]">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-text">{admin.name}</p>
+              <p className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-xs text-mutetext">
+                <Mail size={12} />
+                {admin.email}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.05)] px-3 py-2">
+          <span className="text-xs text-mutetext">Created {admin.created}</span>
+          <Switch checked={admin.status === "ACTIVE"} onChange={onToggle} />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <Link
+            href={`/dashboard/admin/${admin.id}/edit`}
+            className="inline-flex h-9 w-11 items-center justify-center rounded-xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.14)] text-[#b9deee] transition hover:bg-[rgba(111,196,231,0.2)]"
+            aria-label={`Edit ${admin.name}`}
+          >
+            <Pencil size={16} />
+          </Link>
+          <button
+            onClick={onDelete}
+            className="inline-flex h-9 w-11 items-center justify-center rounded-xl border border-[#5b3035]/55 bg-[#ef4444] text-white shadow-[0_10px_24px_rgba(239,68,68,0.3)] transition hover:bg-[#dc3a3a] active:scale-[0.98]"
+            aria-label={`Delete ${admin.name}`}
+          >
+            <Trash2 size={20} strokeWidth={2.2} />
+          </button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

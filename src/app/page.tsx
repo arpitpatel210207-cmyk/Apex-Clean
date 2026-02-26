@@ -3,12 +3,12 @@ import { LogoMark } from "@/components/ui/logo";
 
 export default function Home() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-bg px-6">
-      <div className="surface w-full max-w-xl p-8">
+    <main className="flex min-h-screen items-center justify-center bg-bg px-3 py-6 sm:px-6">
+      <div className="surface w-full max-w-xl p-5 sm:p-8">
 
         <div className="flex items-center gap-3">
           <LogoMark />
-          <h1 className="page-heading text-text">
+          <h1 className="page-heading text-text text-3xl sm:text-4xl">
             Apex Clean Admin
           </h1>
         </div>

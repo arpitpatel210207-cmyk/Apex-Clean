@@ -91,7 +91,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   return (
     <header className="sticky top-0 z-[120] border-b border-white/10 bg-white/[0.03] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/[0.02]">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onMenuClick}
@@ -100,7 +100,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
           >
             <Menu size={18} />
           </button>
-          <h1 className="topbar-title m-0 truncate text-[#e6f5fa]">{title}</h1>
+          <h1 className="topbar-title m-0 truncate text-[#e6f5fa] text-2xl sm:text-3xl lg:text-[34px]">{title}</h1>
         </div>
 
         <div className="flex items-center gap-2">

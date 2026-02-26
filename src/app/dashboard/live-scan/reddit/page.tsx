@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Globe,
@@ -11,13 +10,13 @@ import {
 
 export default function RedditLiveScanPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
 
       {/* HEADER */}
-      <Card className="flex items-center gap-3 p-5">
+      <Card className="flex items-center gap-3 p-4 sm:p-5">
         <Globe className="text-brand w-6 h-6" />
         <div>
-          <h2 className="page-heading text-text">
+          <h2 className="text-2xl font-semibold text-text sm:text-3xl">
             Reddit Monitoring
           </h2>
           <p className="text-mutetext text-sm">
@@ -27,7 +26,7 @@ export default function RedditLiveScanPage() {
       </Card>
 
       {/* INPUT PANEL */}
-      <Card className="space-y-4 p-6">
+      <Card className="space-y-4 p-4 sm:p-6">
 
         <h3 className="text-md font-semibold text-text flex items-center gap-2">
           <Search className="w-5 h-5 text-brand" />
@@ -48,7 +47,7 @@ export default function RedditLiveScanPage() {
       </Card>
 
       {/* RESULTS */}
-      <Card className="space-y-5 p-6">
+      <Card className="space-y-5 p-4 sm:p-6">
 
         <div className="flex items-center gap-2">
           <ShieldCheck className="text-brand w-5 h-5" />
@@ -57,7 +56,7 @@ export default function RedditLiveScanPage() {
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
 
           <ResultStat value="1,120" label="Posts Scanned" color="text-brand" />
           <ResultStat value="7" label="Threats Detected" color="text-brand" />

@@ -34,11 +34,11 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="min-h-screen flex items-center justify-center bg-bg px-6">
+    <Card className="flex min-h-screen items-center justify-center bg-bg px-3 py-6 sm:px-6">
         
-      <CardContent className="surface w-full max-w-sm p-8 space-y-4">
+      <CardContent className="surface w-full max-w-sm space-y-4 p-5 sm:p-8">
 
-        <h1 className="page-heading text-brand">
+        <h1 className="page-heading text-brand text-3xl sm:text-4xl">
           Login
         </h1>
 

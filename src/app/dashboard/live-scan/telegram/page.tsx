@@ -16,15 +16,15 @@ export default function TelegramLiveScanPage() {
   const [keywords, setKeywords] = useState("");
 
   return (
-    <div className="space-y-7">
-      <Card className="relative overflow-hidden border border-[#2a3a45]/55 bg-card p-5">
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
+    <div className="space-y-6 sm:space-y-7">
+      <Card className="relative overflow-hidden border border-[#2a3a45]/55 bg-card p-4 sm:p-5">
+        <div className="relative flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.12)]">
               <Send className="h-5 w-5 text-brand" />
             </div>
-            <div>
-              <h2 className="page-heading text-text">Telegram Tracking</h2>
+            <div className="min-w-0">
+              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">Telegram Tracking</h2>
               <p className="text-sm text-mutetext">
                 Monitor channels and groups for suspicious conversations in real time
               </p>
@@ -37,8 +37,8 @@ export default function TelegramLiveScanPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-6">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
           <h3 className="flex items-center gap-2 text-base font-semibold text-text">
             <Search className="h-4.5 w-4.5 text-brand" />
             Group Chat Monitoring
@@ -73,7 +73,7 @@ export default function TelegramLiveScanPage() {
           </button>
         </Card>
 
-        <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-6">
+        <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
           <h3 className="flex items-center gap-2 text-base font-semibold text-text">
             <Users className="h-4.5 w-4.5 text-brand" />
             Active Watchlist
@@ -91,8 +91,8 @@ export default function TelegramLiveScanPage() {
         </Card>
       </div>
 
-      <Card className="space-y-5 border border-[#2a3a45]/55 bg-card p-6">
-        <div className="flex items-center justify-between">
+      <Card className="space-y-5 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand" />
             <h3 className="font-semibold text-text">Scan Results - Telegram</h3>
@@ -103,7 +103,7 @@ export default function TelegramLiveScanPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
           <ResultStat value="494" label="Total Messages" tone="brand" />
           <ResultStat value="3" label="Threats Detected" tone="danger" />
           <ResultStat value="12" label="Suspicious" tone="warning" />

@@ -2,14 +2,13 @@
 
 import { Card } from "@/components/ui/card";
 import { Send, Users } from "lucide-react";
-import { Button } from "../ui/button";
 
 export default function TelegramScan() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
 
       {/* TELEGRAM HEADER */}
-      <Card className="flex items-center gap-3 p-4 bg-card">
+      <Card className="flex items-center gap-3 bg-card p-4">
         <Send className="text-brand w-5 h-5" />
         <div>
           <h2 className="font-semibold text-text">
@@ -22,7 +21,7 @@ export default function TelegramScan() {
       </Card>
 
       {/* GROUP MONITOR CARD */}
-      <Card className="p-6 space-y-4">
+      <Card className="space-y-4 p-4 sm:p-6">
 
         <div className="flex items-center gap-2 font-medium text-text">
           <Users className="w-4 h-4 text-brand" />
@@ -49,13 +48,13 @@ export default function TelegramScan() {
       </Card>
 
       {/* RESULTS */}
-      <Card className="p-6 space-y-4">
+      <Card className="space-y-4 p-4 sm:p-6">
 
         <h3 className="font-semibold text-text">
           Scan Results - Telegram
         </h3>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
 
           <Result value="494" label="Total Messages" color="text-brand" />
           <Result value="3" label="Threats" color="text-brand" />
