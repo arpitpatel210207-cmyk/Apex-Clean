@@ -31,7 +31,7 @@ const FLAGGED_USERS: FlaggedUser[] = [
   {
     id: 3,
     username: "darkmarket_admin",
-    platform: "Reddit",
+    platform: "4can",
     location: "Unknown",
     flaggedAt: "2025-02-03 21:08",
   },
@@ -46,7 +46,7 @@ export default function TrackUser() {
     { label: "All Platforms", value: "all" },
     { label: "Telegram", value: "telegram" },
     { label: "Discord", value: "discord" },
-    { label: "Reddit", value: "reddit" },
+    { label: "4can", value: "4can" },
   ];
 
   const filteredUsers = useMemo(() => {
@@ -174,6 +174,12 @@ function UserCard({
 
   return (
     <Card
+      role="button"
+      tabIndex={0}
+      onClick={onOpenLocation}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onOpenLocation();
+      }}
       className="overflow-hidden border bg-[#0c1219]"
       style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
     >
@@ -202,7 +208,10 @@ function UserCard({
           </span>
           <button
             type="button"
-            onClick={onOpenLocation}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenLocation();
+            }}
             className="inline-flex items-center gap-1.5 rounded-full border border-[#2a3a45]/60 bg-[#111a24] px-3 py-1 text-[11px] text-text transition hover:bg-[#152130]"
           >
             <MapPin size={13} className="text-mutetext" />
@@ -225,19 +234,20 @@ function LocationPanel({
 
   const hasLocation = user.location.toLowerCase() !== "unknown";
   const mapHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(user.location)}&travelmode=driving`;
+  const mapEmbedSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(user.location)}&z=11&iwloc=B&output=embed`;
 
   return (
     <>
       <button
-        aria-label="Close location modal"
+        aria-label="Close location panel"
         onClick={onClose}
         className="fixed inset-0 z-[120] bg-black/55 backdrop-blur-[2px]"
       />
 
-      <div className="fixed inset-0 z-[130] grid place-items-center p-4">
-        <div className="w-full max-w-[520px] rounded-2xl border border-[#2a3a45]/60 bg-[rgba(12,18,25,0.97)] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.55)]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[18px] font-semibold text-text">Location Details</h3>
+      <div className="fixed inset-y-0 right-0 z-[130] w-full max-w-5xl p-3 sm:p-4">
+        <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#2a3a45]/60 bg-[rgba(12,18,25,0.98)] shadow-[0_20px_55px_rgba(0,0,0,0.55)]">
+          <div className="flex items-center justify-between border-b border-[#2a3a45]/60 px-4 py-3 sm:px-5">
+            <h3 className="text-[18px] font-semibold text-text">User Location Panel</h3>
             <button
               type="button"
               onClick={onClose}
@@ -247,48 +257,58 @@ function LocationPanel({
             </button>
           </div>
 
-          <div className="space-y-4">
-            <Card
-              className="border bg-[#101824]"
-              style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
-            >
-              <CardContent className="space-y-3 p-4">
-                <p className="text-xs uppercase tracking-[0.06em] text-mutetext">User</p>
-                <p className="text-sm font-semibold text-text">@{user.username}</p>
-
-                <p className="pt-2 text-xs uppercase tracking-[0.06em] text-mutetext">Platform</p>
-                <p className="text-sm text-text">{user.platform}</p>
-
-                <p className="pt-2 text-xs uppercase tracking-[0.06em] text-mutetext">Detected Location</p>
-                <p className="text-sm text-text">{user.location}</p>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="border bg-[#101824]"
-              style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
-            >
-              <CardContent className="p-4">
+          <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="min-h-[320px] border-b border-[#2a3a45]/60 p-3 sm:p-4 lg:border-b-0 lg:border-r">
+              <div className="relative h-full overflow-hidden rounded-xl border border-[#2a3a45]/60 bg-[#0d131c]">
                 {hasLocation ? (
-                  <div className="space-y-3">
-                    <p className="text-xs uppercase tracking-[0.06em] text-mutetext">Map</p>
-                    <div className="rounded-xl border border-[#2a3a45]/60 bg-[#0d131c] p-4 text-sm text-mutetext">
-                      Open this location in map view.
-                    </div>
-                    <a
-                      href={mapHref}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-[#172434]"
-                    >
-                      Open Directions
-                    </a>
-                  </div>
+                  <iframe
+                    title={`Map for ${user.location}`}
+                    src={mapEmbedSrc}
+                    className="h-full w-full"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
                 ) : (
-                  <p className="text-sm text-mutetext">No reliable location found for this user.</p>
+                  <div className="grid h-full place-items-center p-4 text-center text-sm text-mutetext">
+                    No reliable location found for this user.
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
+              <Card
+                className="border bg-[#101824]"
+                style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
+              >
+                <CardContent className="space-y-3 p-4">
+                  <p className="text-xs uppercase tracking-[0.06em] text-mutetext">User</p>
+                  <p className="text-sm font-semibold text-text">@{user.username}</p>
+
+                  <p className="pt-2 text-xs uppercase tracking-[0.06em] text-mutetext">Platform</p>
+                  <p className="text-sm text-text">{user.platform}</p>
+
+                  <p className="pt-2 text-xs uppercase tracking-[0.06em] text-mutetext">Detected Location</p>
+                  <p className="text-sm text-text">{user.location}</p>
+
+                  <p className="pt-2 text-xs uppercase tracking-[0.06em] text-mutetext">Flagged At</p>
+                  <p className="text-sm text-text">{user.flaggedAt}</p>
+                </CardContent>
+              </Card>
+
+              {hasLocation ? (
+                <div className="mt-4">
+                  <a
+                    href={mapHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-[#172434]"
+                  >
+                    Open Directions
+                  </a>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

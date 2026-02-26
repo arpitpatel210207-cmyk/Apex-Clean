@@ -13,7 +13,7 @@ import {
 
 export default function DiscordLiveScanPage() {
   const [target, setTarget] = useState("");
-  const [keywords, setKeywords] = useState("");
+  const [apexModel, setApexModel] = useState<"small" | "large">("small");
 
   return (
     <div className="space-y-6 sm:space-y-7">
@@ -46,6 +46,36 @@ export default function DiscordLiveScanPage() {
 
           <div className="space-y-1.5">
             <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
+              Apex Model
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setApexModel("small")}
+                className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  apexModel === "small"
+                    ? "border-[#4f6d81]/70 bg-[rgba(111,196,231,0.18)] text-text"
+                    : "border-[#2a3a45]/55 bg-[rgba(18,22,28,0.45)] text-mutetext hover:text-text"
+                }`}
+              >
+                Apex Small
+              </button>
+              <button
+                type="button"
+                onClick={() => setApexModel("large")}
+                className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  apexModel === "large"
+                    ? "border-[#4f6d81]/70 bg-[rgba(111,196,231,0.18)] text-text"
+                    : "border-[#2a3a45]/55 bg-[rgba(18,22,28,0.45)] text-mutetext hover:text-text"
+                }`}
+              >
+                Apex Large
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
               Server or Channel
             </label>
             <input
@@ -53,18 +83,6 @@ export default function DiscordLiveScanPage() {
               placeholder="Enter server name or invite link"
               value={target}
               onChange={(event) => setTarget(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
-              Keywords
-            </label>
-            <textarea
-              className="input min-h-[110px] !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
-              placeholder="Add comma-separated keywords (optional)"
-              value={keywords}
-              onChange={(event) => setKeywords(event.target.value)}
             />
           </div>
 
