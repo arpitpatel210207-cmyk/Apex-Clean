@@ -5,9 +5,9 @@ import { Card } from "@/components/ui/card";
 import {
   Globe,
   Users,
-  Search,
   AlertTriangle,
   ShieldCheck,
+  Search,
   Clock3,
 } from "lucide-react";
 
@@ -24,14 +24,11 @@ export default function FourCanLiveScanPage() {
               <Globe className="h-5 w-5 text-brand" />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">4chan Monitoring</h2>
-              <p className="text-sm text-mutetext">Monitor boards and threads for suspicious activity in real time</p>
+              <p className="text-sm text-mutetext">
+                Monitor boards and threads for suspicious conversations in real time
+              </p>
             </div>
           </div>
-          {/* <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Live
-          </span> */}
         </div>
       </Card>
 
@@ -43,7 +40,9 @@ export default function FourCanLiveScanPage() {
           </h3>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">Apex Model</label>
+            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
+              Apex Model
+            </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -71,10 +70,12 @@ export default function FourCanLiveScanPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="pb-2 text-xs font-medium uppercase tracking-[0.08em] text-mutetext">Board or Thread</label>
+            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
+              Board or Thread
+            </label>
             <input
               className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
-              placeholder="Enter board (e.g. /pol/) or thread URL"
+              placeholder="Enter board name or thread URL"
               value={target}
               onChange={(event) => setTarget(event.target.value)}
             />
@@ -92,9 +93,9 @@ export default function FourCanLiveScanPage() {
           </h3>
 
           <div className="space-y-2">
-            <WatchRow name="/pol/" tags="4 keywords" />
-            <WatchRow name="/biz/" tags="3 keywords" />
-            <WatchRow name="Thread #49392021" tags="2 keywords" />
+            <WatchRow name="/pol/ board" tags="2 keywords" />
+            <WatchRow name="/biz/ board" tags="5 keywords" />
+            <WatchRow name="Thread #49392021" tags="3 keywords" />
           </div>
 
           <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.06)] px-3 py-2 text-xs text-mutetext">
@@ -116,19 +117,19 @@ export default function FourCanLiveScanPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
-          <ResultStat value="1,120" label="Threads Scanned" tone="brand" />
-          <ResultStat value="7" label="Threats Detected" tone="danger" />
-          <ResultStat value="26" label="Suspicious" tone="warning" />
-          <ResultStat value="1,087" label="Clean Threads" tone="success" />
+          <ResultStat value="732" label="Posts Scanned" tone="brand" />
+          <ResultStat value="4" label="Threats Detected" tone="danger" />
+          <ResultStat value="16" label="Suspicious" tone="warning" />
+          <ResultStat value="712" label="Clean Posts" tone="success" />
         </div>
 
         <div className="flex flex-wrap gap-2 text-sm">
           <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
-            Scan completed in 0.78s
+            Scan completed in 0.84s
           </span>
           <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-rose-300">
             <AlertTriangle size={14} />
-            High Risk Content Found
+            High Priority Alert
           </span>
         </div>
       </Card>
@@ -155,7 +156,7 @@ function ResultStat({
   tone: "brand" | "danger" | "warning" | "success";
 }) {
   const toneClass: Record<typeof tone, string> = {
-    brand: "text-cyan-300",
+    brand: "text-cyan-400",
     danger: "text-rose-300",
     warning: "text-amber-300",
     success: "text-emerald-300",

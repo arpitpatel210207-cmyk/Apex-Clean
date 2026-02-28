@@ -24,16 +24,11 @@ export default function TelegramLiveScanPage() {
               <Send className="h-5 w-5 text-brand" />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">Telegram Tracking</h2>
               <p className="text-sm text-mutetext">
                 Monitor channels and groups for suspicious conversations in real time
               </p>
             </div>
           </div>
-          {/* <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Live
-          </span> */}
         </div>
       </Card>
 
