@@ -12,6 +12,7 @@ import {
 import { Globe, Send, MessageCircle } from "lucide-react";
 import { TimelineChart } from "@/components/dashboard/timeline";
 import { useEffect, useRef, useState } from "react";
+import { getDashboardMonitoring, type DashboardMonitoringResponse } from "@/services/dashboard";
 
 type Trend = "up" | "down" | "alert";
 type PlatformKey = "4chan" | "telegram" | "discord";
@@ -77,10 +78,39 @@ function getTrend(
 
 export default function DashboardPage() {
   const [activePlatform, setActivePlatform] = useState<PlatformKey | null>(null);
-  const platformSeries: Record<PlatformKey, number[]> = {
+  const [monitoring, setMonitoring] = useState<DashboardMonitoringResponse | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getDashboardMonitoring()
+      .then((data) => {
+        if (!mounted) return;
+        setMonitoring(data);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setMonitoring(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const defaultPlatformSeries: Record<PlatformKey, number[]> = {
     "4chan": [48, 62, 77, 58, 84, 69, 92],
     telegram: [42, 55, 67, 73, 61, 78, 88],
     discord: [35, 47, 64, 59, 71, 76, 86],
+  };
+
+  const platformSeries: Record<PlatformKey, number[]> = {
+    "4chan": monitoring?.["4chan"]?.weeklyVolume ?? defaultPlatformSeries["4chan"],
+    telegram: monitoring?.telegram?.weeklyVolume ?? defaultPlatformSeries.telegram,
+    discord: monitoring?.discord?.weeklyVolume ?? defaultPlatformSeries.discord,
+  };
+  const platformDays: Record<PlatformKey, string[]> = {
+    "4chan": monitoring?.["4chan"]?.weeklyDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    telegram: monitoring?.telegram?.weeklyDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    discord: monitoring?.discord?.weeklyDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   };
 
   const modalContent: Record<
@@ -136,6 +166,75 @@ export default function DashboardPage() {
     },
   };
 
+  const resolvedModalContent: typeof modalContent = {
+    "4chan": {
+      ...modalContent["4chan"],
+      graph: {
+        days: platformDays["4chan"],
+        volume: platformSeries["4chan"],
+        risk: monitoring?.["4chan"]?.weeklyRisk ?? modalContent["4chan"].graph.risk,
+      },
+      rows: [
+        {
+          label: "Active Boards",
+          value: `${(monitoring?.["4chan"]?.watchedCount ?? 12).toLocaleString("en-US")} tracked`,
+        },
+        {
+          label: "Scans Today",
+          value: (monitoring?.["4chan"]?.scansToday ?? 2340).toLocaleString("en-US"),
+        },
+        {
+          label: "Flagged Threads",
+          value: (monitoring?.["4chan"]?.flaggedCount ?? 41).toLocaleString("en-US"),
+        },
+      ],
+    },
+    telegram: {
+      ...modalContent.telegram,
+      graph: {
+        days: platformDays.telegram,
+        volume: platformSeries.telegram,
+        risk: monitoring?.telegram?.weeklyRisk ?? modalContent.telegram.graph.risk,
+      },
+      rows: [
+        {
+          label: "Channels Watched",
+          value: `${(monitoring?.telegram?.watchedCount ?? 58).toLocaleString("en-US")} channels`,
+        },
+        {
+          label: "Scans Today",
+          value: (monitoring?.telegram?.scansToday ?? 1780).toLocaleString("en-US"),
+        },
+        {
+          label: "Flagged Messages",
+          value: (monitoring?.telegram?.flaggedCount ?? 29).toLocaleString("en-US"),
+        },
+      ],
+    },
+    discord: {
+      ...modalContent.discord,
+      graph: {
+        days: platformDays.discord,
+        volume: platformSeries.discord,
+        risk: monitoring?.discord?.weeklyRisk ?? modalContent.discord.graph.risk,
+      },
+      rows: [
+        {
+          label: "Servers Monitored",
+          value: `${(monitoring?.discord?.watchedCount ?? 24).toLocaleString("en-US")} servers`,
+        },
+        {
+          label: "Scans Today",
+          value: (monitoring?.discord?.scansToday ?? 1120).toLocaleString("en-US"),
+        },
+        {
+          label: "Flagged Posts",
+          value: (monitoring?.discord?.flaggedCount ?? 17).toLocaleString("en-US"),
+        },
+      ],
+    },
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8 lg:space-y-10">
 
@@ -173,30 +272,33 @@ export default function DashboardPage() {
 
   <PlatformCard
     title="4chan Monitoring"
-    activity="2,340 scans today"
+    activity={`${(monitoring?.["4chan"]?.scansToday ?? 2340).toLocaleString("en-US")} scans today`}
     icon={Globe}
     series={platformSeries["4chan"]}
     platform="4chan"
+    days={platformDays["4chan"]}
     revealDelayMs={120}
     onClick={() => setActivePlatform("4chan")}
   />
 
   <PlatformCard
     title="Telegram Tracking"
-    activity="1,780 scans today"
+    activity={`${(monitoring?.telegram?.scansToday ?? 1780).toLocaleString("en-US")} scans today`}
     icon={Send}
     series={platformSeries.telegram}
     platform="telegram"
+    days={platformDays.telegram}
     revealDelayMs={200}
     onClick={() => setActivePlatform("telegram")}
   />
 
   <PlatformCard
     title="Discord Surveillance"
-    activity="1,120 scans today"
+    activity={`${(monitoring?.discord?.scansToday ?? 1120).toLocaleString("en-US")} scans today`}
     icon={MessageCircle}
     series={platformSeries.discord}
     platform="discord"
+    days={platformDays.discord}
     revealDelayMs={280}
     onClick={() => setActivePlatform("discord")}
   />
@@ -229,12 +331,12 @@ export default function DashboardPage() {
           <div className="space-y-3">
             <WeeklyDetailGraph
               platform={activePlatform}
-              days={modalContent[activePlatform].graph.days}
-              volume={modalContent[activePlatform].graph.volume}
-              risk={modalContent[activePlatform].graph.risk}
+              days={resolvedModalContent[activePlatform].graph.days}
+              volume={resolvedModalContent[activePlatform].graph.volume}
+              risk={resolvedModalContent[activePlatform].graph.risk}
             />
 
-            {modalContent[activePlatform].rows.map((row) => (
+            {resolvedModalContent[activePlatform].rows.map((row) => (
               <div
                 key={row.label}
                 className="modal-surface flex items-center justify-between rounded-xl px-4 py-3"
@@ -396,6 +498,7 @@ function PlatformCard({
   title,
   activity,
   series,
+  days,
   platform,
   revealDelayMs = 120,
   icon: Icon,
@@ -404,6 +507,7 @@ function PlatformCard({
   title: string;
   activity: string;
   series: number[];
+  days: string[];
   platform: PlatformKey;
   revealDelayMs?: number;
   icon: LucideIcon;
@@ -475,7 +579,7 @@ function PlatformCard({
         </div>
 
         <div className="pt-1">
-          <PillBarsChart data={series} platform={platform} animate={animate} />
+          <PillBarsChart data={series} days={days} platform={platform} animate={animate} />
         </div>
 
 
@@ -492,15 +596,19 @@ function PlatformCard({
 
 function PillBarsChart({
   data,
+  days,
   platform,
   animate = true,
 }: {
   data: number[];
+  days?: string[];
   platform: PlatformKey;
   animate?: boolean;
 }) {
   const bars = data.slice(0, 7);
-  const days = ["M", "T", "W", "T", "F", "S", "S"];
+  const dayLabels = (days ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    .slice(0, bars.length)
+    .map((day) => day.slice(0, 1));
   const min = Math.min(...bars);
   const max = Math.max(...bars);
   const range = Math.max(max - min, 1);
@@ -553,7 +661,7 @@ function PillBarsChart({
         ))}
       </div>
       <div className="mt-1 flex items-center gap-2 px-1">
-        {days.map((day, i) => (
+        {dayLabels.map((day, i) => (
           <span key={`${platform}-day-${i}`} className="w-full text-center text-[10px] text-mutetext">
             {day}
           </span>
@@ -611,7 +719,7 @@ function WeeklyDetailGraph({
         </div>
       </div>
 
-      <PillBarsChart data={volume} platform={platform} />
+      <PillBarsChart data={volume} days={days} platform={platform} />
 
       <div className="modal-subtle mt-2 flex items-center gap-4 text-[12px]">
         <div className="flex items-center gap-1.5">
