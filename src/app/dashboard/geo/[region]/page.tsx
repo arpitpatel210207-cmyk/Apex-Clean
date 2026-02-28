@@ -10,11 +10,11 @@ export default function GeoPage({
 }: {
   params: Promise<{ region: string }>;
 }) {
-  const { region } = use(params); // ✅ unwrap promise
+  use(params); // keep route param consumption for dynamic segment
 
   return (
     <div className="h-[calc(100dvh-128px)] min-h-[420px] w-full sm:h-[calc(100vh-140px)]">
-      <LeafletMap region={region} />
+      <LeafletMap />
     </div>
   );
 }

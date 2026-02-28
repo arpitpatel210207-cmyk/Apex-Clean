@@ -3,10 +3,12 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import * as turf from "@turf/turf";
+import type { Feature, Geometry } from "geojson";
 import "leaflet/dist/leaflet.css";
+import { getStateThreatScores } from "@/services/prevalence";
 
 /* Fix leaflet icons */
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -17,7 +19,7 @@ L.Icon.Default.mergeOptions({
     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-export default function Map({ region }: { region: string }) {
+export default function Map() {
   const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
@@ -34,37 +36,8 @@ export default function Map({ region }: { region: string }) {
       attribution: "Ã‚Â© OpenStreetMap",
     }).addTo(map);
 
-    /* Example prevalence (%) */
-    const prevalence: Record<string, number> = {
-      delhi: 7,
-      rajasthan: 4,
-      maharashtra: 9,
-      gujarat: 5,
-      westbengal: 8,
-      tamilnadu: 6,
-      karnataka: 7,
-      telangana: 6,
-      uttarpradesh: 3,
-      punjab: 4,
-      bihar: 9,
-      assam: 5,
-      odisha: 6,
-      madhyapradesh: 4,
-      chhattisgarh: 6,
-      jharkhand: 7,
-      kerala: 3,
-      haryana: 5,
-    };
-
     const normalize = (s: string) =>
       s.toLowerCase().replace(/[^a-z]/g, "");
-
-    // Ensure every state gets a stable value so the choropleth shows all colors.
-    const getStateValue = (stateName: string) => {
-      if (prevalence[stateName] !== undefined) return prevalence[stateName];
-      const hash = stateName.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-      return (hash % 10) + 1;
-    };
 
     /* 4-color prevalence scale: cyan -> green -> yellow -> red */
     const getColor = (v: number) => {
@@ -74,14 +47,21 @@ export default function Map({ region }: { region: string }) {
       return "#22d3ee"; // cyan
     };
 
+    Promise.all([
+      getStateThreatScores().catch(() => []),
+      fetch(
+        "https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson"
+      ).then((r) => r.json()),
+    ]).then(([scores, geo]) => {
+        const prevalence: Record<string, number> = {};
+        for (const item of scores) {
+          prevalence[normalize(item.state)] = item.score;
+        }
 
-    fetch(
-      "https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson"
-    )
-      .then((r) => r.json())
-      .then((geo) => {
+        const getStateValue = (stateName: string) => prevalence[stateName] ?? 0;
+
         L.geoJSON(geo, {
-          style: (feature: any) => {
+          style: (feature) => {
             const name = normalize(feature.properties.NAME_1 || "");
             const value = getStateValue(name);
 
@@ -95,13 +75,13 @@ export default function Map({ region }: { region: string }) {
 
           onEachFeature: (feature, layer) => {
             layer.on({
-              mouseover: (e: any) => {
+              mouseover: (e: L.LeafletMouseEvent) => {
                 e.target.setStyle({
                   fillOpacity: 1,
                   weight: 2,
                 });
               },
-              mouseout: (e: any) => {
+              mouseout: (e: L.LeafletMouseEvent) => {
                 e.target.setStyle({
                   fillOpacity: 0.9,
                   weight: 0.9,
@@ -111,8 +91,9 @@ export default function Map({ region }: { region: string }) {
 
             /* Optional labels like reference */
             try {
+              const geoFeature = feature as Feature<Geometry>;
               const [lng, lat] =
-                turf.centroid(feature as any).geometry.coordinates;
+                turf.centroid(geoFeature).geometry.coordinates;
 
               L.marker([lat, lng], {
                 icon: L.divIcon({
