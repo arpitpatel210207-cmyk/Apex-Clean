@@ -97,17 +97,19 @@ function normalizeChannel(item: unknown, index: number): TelegramChannel | null 
       : `@${rawUsername}`
     : "";
   const peerId = asString(row.peer_id ?? row.peerId ?? row.id ?? "");
-  const scrapeKey = asString(
-    row.scrape_key ??
-      row.scrapeKey ??
-      row.scrapekey ??
-      row.scrape_id ??
-      row.scrapeId ??
-      row.key ??
-      normalizedUsername ??
-      peerId,
-    normalizedUsername || peerId,
-  );
+  const scrapeKey =
+    asString(
+      row.scrape_key ??
+        row.scrapeKey ??
+        row.scrapekey ??
+        row.scrape_id ??
+        row.scrapeId ??
+        row.key ??
+        normalizedUsername ??
+        peerId,
+    ) ||
+    normalizedUsername ||
+    peerId;
   const type = asString(row.type ?? row.channelType ?? "channel");
 
   if (!title) return null;
