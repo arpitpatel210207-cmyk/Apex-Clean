@@ -246,84 +246,80 @@ export function TimelineChart() {
             <Tooltip
               cursor={{ stroke: "rgba(139,174,201,0.45)", strokeWidth: 1, strokeDasharray: "4 5" }}
               content={<PremiumTooltip />}
-              wrapperStyle={{ visibility: shouldAnimate ? "visible" : "hidden" }}
+              wrapperStyle={{ visibility: "visible" }}
             />
 
-            {shouldAnimate ? (
-              <>
-                <Line
-                  type="monotone"
-                  dataKey="scans"
-                  stroke={chartColors.scans}
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  dot={false}
-                  filter="url(#primarySoftGlow)"
-                  isAnimationActive={lineAnimActive}
-                  animationDuration={2200}
-                  animationEasing="ease-in-out"
-                  activeDot={{ r: 4, fill: chartColors.scans, stroke: "rgba(8,10,12,0.92)", strokeWidth: 2 }}
-                />
+            <Line
+              type="monotone"
+              dataKey="scans"
+              stroke={chartColors.scans}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dot={false}
+              filter="url(#primarySoftGlow)"
+              isAnimationActive={lineAnimActive}
+              animationDuration={2200}
+              animationEasing="ease-in-out"
+              activeDot={{ r: 4, fill: chartColors.scans, stroke: "rgba(8,10,12,0.92)", strokeWidth: 2 }}
+            />
 
-                <Line
-                  type="monotone"
-                  dataKey="clean"
-                  stroke={chartColors.clean}
-                  strokeWidth={1.9}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  dot={false}
-                  strokeOpacity={0.86}
-                  isAnimationActive={lineAnimActive}
-                  animationDuration={2200}
-                  animationEasing="ease-in-out"
-                  activeDot={{ r: 3.6, fill: chartColors.clean, stroke: "rgba(8,10,12,0.92)", strokeWidth: 2 }}
-                />
+            <Line
+              type="monotone"
+              dataKey="clean"
+              stroke={chartColors.clean}
+              strokeWidth={1.9}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dot={false}
+              strokeOpacity={0.86}
+              isAnimationActive={lineAnimActive}
+              animationDuration={2200}
+              animationEasing="ease-in-out"
+              activeDot={{ r: 3.6, fill: chartColors.clean, stroke: "rgba(8,10,12,0.92)", strokeWidth: 2 }}
+            />
 
-                <Line
-                  type="monotone"
-                  dataKey="threats"
-                  stroke={chartColors.threats}
-                  strokeWidth={1.9}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  dot={false}
-                  strokeOpacity={0.84}
-                  isAnimationActive={lineAnimActive}
-                  animationDuration={2200}
-                  animationEasing="ease-in-out"
-                  activeDot={{ r: 3.6, fill: chartColors.threats, stroke: "rgba(8,10,12,0.92)", strokeWidth: 2 }}
-                />
+            <Line
+              type="monotone"
+              dataKey="threats"
+              stroke={chartColors.threats}
+              strokeWidth={1.9}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              dot={false}
+              strokeOpacity={0.84}
+              isAnimationActive={lineAnimActive}
+              animationDuration={2200}
+              animationEasing="ease-in-out"
+              activeDot={{ r: 3.6, fill: chartColors.threats, stroke: "rgba(8,10,12,0.92)", strokeWidth: 2 }}
+            />
 
-                <Area
-                  type="monotone"
-                  dataKey="scans"
-                  stroke="transparent"
-                  fill="url(#fillScans)"
-                  fillOpacity={0.9 * fillProgress}
-                  isAnimationActive={false}
-                />
+            <Area
+              type="monotone"
+              dataKey="scans"
+              stroke="transparent"
+              fill="url(#fillScans)"
+              fillOpacity={0.9 * (shouldAnimate ? fillProgress : 1)}
+              isAnimationActive={false}
+            />
 
-                <Area
-                  type="monotone"
-                  dataKey="clean"
-                  stroke="transparent"
-                  fill="url(#fillClean)"
-                  fillOpacity={0.8 * fillProgress}
-                  isAnimationActive={false}
-                />
+            <Area
+              type="monotone"
+              dataKey="clean"
+              stroke="transparent"
+              fill="url(#fillClean)"
+              fillOpacity={0.8 * (shouldAnimate ? fillProgress : 1)}
+              isAnimationActive={false}
+            />
 
-                <Area
-                  type="monotone"
-                  dataKey="threats"
-                  stroke="transparent"
-                  fill="url(#fillThreats)"
-                  fillOpacity={0.75 * fillProgress}
-                  isAnimationActive={false}
-                />
-              </>
-            ) : null}
+            <Area
+              type="monotone"
+              dataKey="threats"
+              stroke="transparent"
+              fill="url(#fillThreats)"
+              fillOpacity={0.75 * (shouldAnimate ? fillProgress : 1)}
+              isAnimationActive={false}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>

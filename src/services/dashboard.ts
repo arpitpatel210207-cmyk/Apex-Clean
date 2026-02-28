@@ -10,6 +10,16 @@ export type PlatformMonitoring = {
 };
 
 export type DashboardMonitoringResponse = Record<PlatformKey, PlatformMonitoring>;
+export type DashboardSummary = {
+  totalUsers: number;
+  previousTotalUsers: number;
+  newToday: number;
+  previousNewToday: number;
+  flagged: number;
+  previousFlagged: number;
+  activeUsers: number;
+  previousActiveUsers: number;
+};
 export type WeeklyOverviewPoint = {
   date: string;
   scans: number;
@@ -21,9 +31,10 @@ const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
 
 const PLATFORM_ROUTE: Record<PlatformKey, string> = {
   "4chan": "/dashboard/platform/4chan",
-  telegram: "/dashboard/platform/telgram",
+  telegram: "/dashboard/platform/telegram",
   discord: "/dashboard/platform/discord",
 };
+const DASHBOARD_SUMMARY_ROUTE = "/dashboard/summary";
 const WEEKLY_OVERVIEW_ROUTE = "/dashboard/weekly-overview";
 
 const PLATFORM_ROUTE_FALLBACK: Partial<Record<PlatformKey, string[]>> = {
@@ -33,6 +44,7 @@ const PLATFORM_ROUTE_FALLBACK: Partial<Record<PlatformKey, string[]>> = {
 async function request<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     cache: "no-store",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
 
@@ -75,8 +87,8 @@ function asNumberArray(value: unknown, fallback: number[]): number[] {
 
 function normalizeWeeklyActivity(
   value: unknown,
-  fallbackDays: string[],
-  fallbackVolume: number[],
+  fallbackDays: string[] = [],
+  fallbackVolume: number[] = [],
 ): { days: string[]; volume: number[] } {
   if (!Array.isArray(value)) {
     return { days: fallbackDays, volume: fallbackVolume };
@@ -102,8 +114,8 @@ function normalizeWeeklyActivity(
 
 function normalizePlatform(
   raw: unknown,
-  fallbackDays: string[],
-  fallbackVolume: number[],
+  fallbackDays: string[] = [],
+  fallbackVolume: number[] = [],
 ): PlatformMonitoring {
   const root = asObject(raw);
   const data = asObject(root.data ?? root);
@@ -210,17 +222,74 @@ function normalizeWeeklyOverview(payload: unknown): WeeklyOverviewPoint[] {
   return [];
 }
 
+function normalizeDashboardSummary(payload: unknown): DashboardSummary {
+  const root = asObject(payload);
+  const data = asObject(root.data ?? root);
+
+  const totalUsers = asNumber(
+    data.totalUsers ?? data.total_users ?? data.users ?? data.total,
+    0,
+  );
+  const newToday = asNumber(
+    data.newToday ?? data.new_today ?? data.todayNewUsers ?? data.newUsers,
+    0,
+  );
+  const flagged = asNumber(
+    data.flagged ?? data.flaggedUsers ?? data.flagged_users ?? data.totalFlagged,
+    0,
+  );
+  const activeUsers = asNumber(
+    data.activeUsers ?? data.active_users ?? data.onlineUsers ?? data.active,
+    0,
+  );
+
+  return {
+    totalUsers,
+    previousTotalUsers: asNumber(
+      data.previousTotalUsers ??
+        data.previous_total_users ??
+        data.prevTotalUsers ??
+        data.totalUsersPrevious,
+      totalUsers,
+    ),
+    newToday,
+    previousNewToday: asNumber(
+      data.previousNewToday ??
+        data.previous_new_today ??
+        data.prevNewToday ??
+        data.newTodayPrevious,
+      newToday,
+    ),
+    flagged,
+    previousFlagged: asNumber(
+      data.previousFlagged ??
+        data.previous_flagged ??
+        data.prevFlagged ??
+        data.flaggedPrevious,
+      flagged,
+    ),
+    activeUsers,
+    previousActiveUsers: asNumber(
+      data.previousActiveUsers ??
+        data.previous_active_users ??
+        data.prevActiveUsers ??
+        data.activeUsersPrevious,
+      activeUsers,
+    ),
+  };
+}
+
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const payload = await request<unknown>(DASHBOARD_SUMMARY_ROUTE);
+  return normalizeDashboardSummary(payload);
+}
+
 export async function getDashboardWeeklyOverview(): Promise<WeeklyOverviewPoint[]> {
   const payload = await request<unknown>(WEEKLY_OVERVIEW_ROUTE);
   return normalizeWeeklyOverview(payload);
 }
 
 export async function getDashboardMonitoring(): Promise<DashboardMonitoringResponse> {
-  const fallbackDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const fallback4chan = [48, 62, 77, 58, 84, 69, 92];
-  const fallbackTelegram = [42, 55, 67, 73, 61, 78, 88];
-  const fallbackDiscord = [35, 47, 64, 59, 71, 76, 86];
-
   const fetchPlatform = async (platform: PlatformKey): Promise<unknown> => {
     const candidates = [
       PLATFORM_ROUTE[platform],
@@ -247,18 +316,12 @@ export async function getDashboardMonitoring(): Promise<DashboardMonitoringRespo
   return {
     "4chan": normalizePlatform(
       chanRes.status === "fulfilled" ? chanRes.value : null,
-      fallbackDays,
-      fallback4chan,
     ),
     telegram: normalizePlatform(
       telegramRes.status === "fulfilled" ? telegramRes.value : null,
-      fallbackDays,
-      fallbackTelegram,
     ),
     discord: normalizePlatform(
       discordRes.status === "fulfilled" ? discordRes.value : null,
-      fallbackDays,
-      fallbackDiscord,
     ),
   };
 }

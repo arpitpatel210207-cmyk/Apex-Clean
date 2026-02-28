@@ -12,47 +12,17 @@ import {
 import { Globe, Send, MessageCircle } from "lucide-react";
 import { TimelineChart } from "@/components/dashboard/timeline";
 import { useEffect, useRef, useState } from "react";
-import { getDashboardMonitoring, type DashboardMonitoringResponse } from "@/services/dashboard";
+import {
+  getDashboardMonitoring,
+  getDashboardSummary,
+  type DashboardMonitoringResponse,
+  type DashboardSummary,
+} from "@/services/dashboard";
 
 type Trend = "up" | "down" | "alert";
 type PlatformKey = "4chan" | "telegram" | "discord";
-
-const statCards: {
-  title: string;
-  current: number;
-  previous: number;
-  unit?: string;
-  alertOnIncrease?: boolean;
-  alertLabel?: string;
-  icon: LucideIcon;
-}[] = [
-  {
-    title: "Total Users",
-    current: 12500,
-    previous: 12200,
-    icon: Users,
-  },
-  {
-    title: "New Today",
-    current: 56,
-    previous: 50,
-    icon: UserPlus,
-  },
-  {
-    title: "Flagged",
-    current: 32,
-    previous: 27,
-    alertOnIncrease: true,
-    alertLabel: "Action Required",
-    icon: ShieldAlert,
-  },
-  {
-    title: "Active Users",
-    current: 8420,
-    previous: 8523,
-    icon: Clock,
-  },
-];
+const MONITORING_CACHE_KEY = "dashboard_monitoring_cache_v1";
+const SUMMARY_CACHE_KEY = "dashboard_summary_cache_v1";
 
 function getTrend(
   current: number,
@@ -79,41 +49,140 @@ function getTrend(
 export default function DashboardPage() {
   const [activePlatform, setActivePlatform] = useState<PlatformKey | null>(null);
   const [monitoring, setMonitoring] = useState<DashboardMonitoringResponse | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
   useEffect(() => {
+    try {
+      const cached = window.localStorage.getItem(MONITORING_CACHE_KEY);
+      if (cached) {
+        setMonitoring(JSON.parse(cached) as DashboardMonitoringResponse);
+      }
+    } catch {}
+
     let mounted = true;
     getDashboardMonitoring()
       .then((data) => {
         if (!mounted) return;
         setMonitoring(data);
+        try {
+          window.localStorage.setItem(MONITORING_CACHE_KEY, JSON.stringify(data));
+        } catch {}
       })
       .catch(() => {
         if (!mounted) return;
-        setMonitoring(null);
       });
     return () => {
       mounted = false;
     };
   }, []);
 
-  const defaultPlatformSeries: Record<PlatformKey, number[]> = {
-    "4chan": [48, 62, 77, 58, 84, 69, 92],
-    telegram: [42, 55, 67, 73, 61, 78, 88],
-    discord: [35, 47, 64, 59, 71, 76, 86],
-  };
+  useEffect(() => {
+    try {
+      const cached = window.localStorage.getItem(SUMMARY_CACHE_KEY);
+      if (cached) {
+        setSummary(JSON.parse(cached) as DashboardSummary);
+      }
+    } catch {}
+
+    let mounted = true;
+    getDashboardSummary()
+      .then((data) => {
+        if (!mounted) return;
+        setSummary(data);
+        try {
+          window.localStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify(data));
+        } catch {}
+      })
+      .catch(() => {
+        if (!mounted) return;
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const statCards: {
+    title: string;
+    current: number;
+    previous: number;
+    unit?: string;
+    alertOnIncrease?: boolean;
+    alertLabel?: string;
+    icon: LucideIcon;
+  }[] = [
+    {
+      title: "Total Users",
+      current: summary?.totalUsers ?? 0,
+      previous: summary?.previousTotalUsers ?? summary?.totalUsers ?? 0,
+      icon: Users,
+    },
+    {
+      title: "New Today",
+      current: summary?.newToday ?? 0,
+      previous: summary?.previousNewToday ?? summary?.newToday ?? 0,
+      icon: UserPlus,
+    },
+    {
+      title: "Flagged",
+      current: summary?.flagged ?? 0,
+      previous: summary?.previousFlagged ?? summary?.flagged ?? 0,
+      alertOnIncrease: true,
+      alertLabel: "Action Required",
+      icon: ShieldAlert,
+    },
+    {
+      title: "Active Users",
+      current: summary?.activeUsers ?? 0,
+      previous: summary?.previousActiveUsers ?? summary?.activeUsers ?? 0,
+      icon: Clock,
+    },
+  ];
 
   const platformSeries: Record<PlatformKey, number[]> = {
-    "4chan": monitoring?.["4chan"]?.weeklyVolume ?? defaultPlatformSeries["4chan"],
-    telegram: monitoring?.telegram?.weeklyVolume ?? defaultPlatformSeries.telegram,
-    discord: monitoring?.discord?.weeklyVolume ?? defaultPlatformSeries.discord,
+    "4chan": monitoring?.["4chan"]?.weeklyVolume ?? [],
+    telegram: monitoring?.telegram?.weeklyVolume ?? [],
+    discord: monitoring?.discord?.weeklyVolume ?? [],
   };
   const platformDays: Record<PlatformKey, string[]> = {
-    "4chan": monitoring?.["4chan"]?.weeklyDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    telegram: monitoring?.telegram?.weeklyDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    discord: monitoring?.discord?.weeklyDays ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "4chan": monitoring?.["4chan"]?.weeklyDays ?? [],
+    telegram: monitoring?.telegram?.weeklyDays ?? [],
+    discord: monitoring?.discord?.weeklyDays ?? [],
   };
 
   const modalContent: Record<
+    PlatformKey,
+    {
+      title: string;
+      rows: { label: string }[];
+    }
+  > = {
+    "4chan": {
+      title: "4chan Monitoring",
+      rows: [
+        { label: "Active Boards" },
+        { label: "Scans Today" },
+        { label: "Flagged Threads" },
+      ],
+    },
+    telegram: {
+      title: "Telegram Tracking",
+      rows: [
+        { label: "Channels Watched" },
+        { label: "Scans Today" },
+        { label: "Flagged Messages" },
+      ],
+    },
+    discord: {
+      title: "Discord Surveillance",
+      rows: [
+        { label: "Servers Monitored" },
+        { label: "Scans Today" },
+        { label: "Flagged Posts" },
+      ],
+    },
+  };
+
+  const resolvedModalContent: Record<
     PlatformKey,
     {
       title: string;
@@ -126,66 +195,24 @@ export default function DashboardPage() {
     }
   > = {
     "4chan": {
-      title: "4chan Monitoring",
-      graph: {
-        days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        volume: [48, 62, 77, 58, 84, 69, 92],
-        risk: [22, 26, 31, 24, 35, 29, 38],
-      },
-      rows: [
-        { label: "Active Boards", value: "12 tracked" },
-        { label: "Scans Today", value: "2,340" },
-        { label: "Flagged Threads", value: "41" },
-      ],
-    },
-    telegram: {
-      title: "Telegram Tracking",
-      graph: {
-        days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        volume: [42, 55, 67, 73, 61, 78, 88],
-        risk: [18, 21, 27, 32, 28, 34, 36],
-      },
-      rows: [
-        { label: "Channels Watched", value: "58 channels" },
-        { label: "Scans Today", value: "1,780" },
-        { label: "Flagged Messages", value: "29" },
-      ],
-    },
-    discord: {
-      title: "Discord Surveillance",
-      graph: {
-        days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        volume: [35, 47, 64, 59, 71, 76, 86],
-        risk: [14, 17, 22, 24, 26, 29, 31],
-      },
-      rows: [
-        { label: "Servers Monitored", value: "24 servers" },
-        { label: "Scans Today", value: "1,120" },
-        { label: "Flagged Posts", value: "17" },
-      ],
-    },
-  };
-
-  const resolvedModalContent: typeof modalContent = {
-    "4chan": {
       ...modalContent["4chan"],
       graph: {
         days: platformDays["4chan"],
         volume: platformSeries["4chan"],
-        risk: monitoring?.["4chan"]?.weeklyRisk ?? modalContent["4chan"].graph.risk,
+        risk: monitoring?.["4chan"]?.weeklyRisk ?? [],
       },
       rows: [
         {
           label: "Active Boards",
-          value: `${(monitoring?.["4chan"]?.watchedCount ?? 12).toLocaleString("en-US")} tracked`,
+          value: `${(monitoring?.["4chan"]?.watchedCount ?? 0).toLocaleString("en-US")} tracked`,
         },
         {
           label: "Scans Today",
-          value: (monitoring?.["4chan"]?.scansToday ?? 2340).toLocaleString("en-US"),
+          value: (monitoring?.["4chan"]?.scansToday ?? 0).toLocaleString("en-US"),
         },
         {
           label: "Flagged Threads",
-          value: (monitoring?.["4chan"]?.flaggedCount ?? 41).toLocaleString("en-US"),
+          value: (monitoring?.["4chan"]?.flaggedCount ?? 0).toLocaleString("en-US"),
         },
       ],
     },
@@ -194,20 +221,20 @@ export default function DashboardPage() {
       graph: {
         days: platformDays.telegram,
         volume: platformSeries.telegram,
-        risk: monitoring?.telegram?.weeklyRisk ?? modalContent.telegram.graph.risk,
+        risk: monitoring?.telegram?.weeklyRisk ?? [],
       },
       rows: [
         {
           label: "Channels Watched",
-          value: `${(monitoring?.telegram?.watchedCount ?? 58).toLocaleString("en-US")} channels`,
+          value: `${(monitoring?.telegram?.watchedCount ?? 0).toLocaleString("en-US")} channels`,
         },
         {
           label: "Scans Today",
-          value: (monitoring?.telegram?.scansToday ?? 1780).toLocaleString("en-US"),
+          value: (monitoring?.telegram?.scansToday ?? 0).toLocaleString("en-US"),
         },
         {
           label: "Flagged Messages",
-          value: (monitoring?.telegram?.flaggedCount ?? 29).toLocaleString("en-US"),
+          value: (monitoring?.telegram?.flaggedCount ?? 0).toLocaleString("en-US"),
         },
       ],
     },
@@ -216,20 +243,20 @@ export default function DashboardPage() {
       graph: {
         days: platformDays.discord,
         volume: platformSeries.discord,
-        risk: monitoring?.discord?.weeklyRisk ?? modalContent.discord.graph.risk,
+        risk: monitoring?.discord?.weeklyRisk ?? [],
       },
       rows: [
         {
           label: "Servers Monitored",
-          value: `${(monitoring?.discord?.watchedCount ?? 24).toLocaleString("en-US")} servers`,
+          value: `${(monitoring?.discord?.watchedCount ?? 0).toLocaleString("en-US")} servers`,
         },
         {
           label: "Scans Today",
-          value: (monitoring?.discord?.scansToday ?? 1120).toLocaleString("en-US"),
+          value: (monitoring?.discord?.scansToday ?? 0).toLocaleString("en-US"),
         },
         {
           label: "Flagged Posts",
-          value: (monitoring?.discord?.flaggedCount ?? 17).toLocaleString("en-US"),
+          value: (monitoring?.discord?.flaggedCount ?? 0).toLocaleString("en-US"),
         },
       ],
     },
@@ -272,7 +299,7 @@ export default function DashboardPage() {
 
   <PlatformCard
     title="4chan Monitoring"
-    activity={`${(monitoring?.["4chan"]?.scansToday ?? 2340).toLocaleString("en-US")} scans today`}
+    activity={`${(monitoring?.["4chan"]?.scansToday ?? 0).toLocaleString("en-US")} scans today`}
     icon={Globe}
     series={platformSeries["4chan"]}
     platform="4chan"
@@ -283,7 +310,7 @@ export default function DashboardPage() {
 
   <PlatformCard
     title="Telegram Tracking"
-    activity={`${(monitoring?.telegram?.scansToday ?? 1780).toLocaleString("en-US")} scans today`}
+    activity={`${(monitoring?.telegram?.scansToday ?? 0).toLocaleString("en-US")} scans today`}
     icon={Send}
     series={platformSeries.telegram}
     platform="telegram"
@@ -294,7 +321,7 @@ export default function DashboardPage() {
 
   <PlatformCard
     title="Discord Surveillance"
-    activity={`${(monitoring?.discord?.scansToday ?? 1120).toLocaleString("en-US")} scans today`}
+    activity={`${(monitoring?.discord?.scansToday ?? 0).toLocaleString("en-US")} scans today`}
     icon={MessageCircle}
     series={platformSeries.discord}
     platform="discord"
@@ -606,9 +633,16 @@ function PillBarsChart({
   animate?: boolean;
 }) {
   const bars = data.slice(0, 7);
-  const dayLabels = (days ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+  const dayLabels = (days ?? [])
     .slice(0, bars.length)
     .map((day) => day.slice(0, 1));
+  if (!bars.length) {
+    return (
+      <div className="rounded-xl border border-[rgba(0,0,0,0.78)] bg-[rgb(12,12,12)] px-3 py-3 shadow-[inset_6px_6px_14px_rgba(0,0,0,0.86),inset_-2px_-2px_6px_rgba(255,255,255,0.08),0_1px_0_rgba(0,0,0,0.62)]">
+        <div className="grid h-32 place-items-center text-[12px] text-mutetext">No data</div>
+      </div>
+    );
+  }
   const min = Math.min(...bars);
   const max = Math.max(...bars);
   const range = Math.max(max - min, 1);
@@ -686,14 +720,16 @@ function WeeklyDetailGraph({
   risk: number[];
 }) {
   const totalWeekly = volume.reduce((sum, item) => sum + item, 0);
-  const avgRisk = Math.round(risk.reduce((sum, item) => sum + item, 0) / risk.length);
+  const avgRisk = risk.length
+    ? Math.round(risk.reduce((sum, item) => sum + item, 0) / risk.length)
+    : 0;
 
-  let peakDay = days[0];
-  let peakValue = volume[0];
-  for (let i = 1; i < volume.length; i++) {
+  let peakDay = "N/A";
+  let peakValue = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < volume.length; i++) {
     if (volume[i] > peakValue) {
       peakValue = volume[i];
-      peakDay = days[i];
+      peakDay = days[i] ?? `Day ${i + 1}`;
     }
   }
 
