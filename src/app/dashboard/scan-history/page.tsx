@@ -7,15 +7,17 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { AlertTriangle, Clock3, ShieldCheck } from "lucide-react";
 import {
   exportScanHistory,
+  getScanHistoryOverviewList,
   getScanHistorySummary,
   type ScanHistoryExportType,
+  type ScanHistoryOverviewItem,
   type ScanHistorySummary,
 } from "@/services/scan-history";
 
 /* ---------------- TYPES ---------------- */
 
 type Scan = {
-  id: number;
+  id: string;
   platform: string;
   type: string;
   target: string;
@@ -30,63 +32,9 @@ type Scan = {
   deltaThreats: string;
   deltaSuspicious: string;
   deltaClean: string;
+  activeThreat?: boolean;
 };
 
-/* ---------------- DATA ---------------- */
-
-const SCANS: Scan[] = [
-  {
-    id: 1,
-    platform: "Discord",
-    type: "Posts Scan",
-    target: "@suspicious_user_1",
-    messages: 156,
-    threats: 3,
-    suspicious: 8,
-    clean: 145,
-    risk: "High",
-    time: "30m ago",
-    duration: "2.1s",
-    deltaMessages: "+12%",
-    deltaThreats: "+2%",
-    deltaSuspicious: "-5%",
-    deltaClean: "+15%",
-  },
-  {
-    id: 2,
-    platform: "Telegram",
-    type: "Groups Scan",
-    target: "DrugMarket_Channel",
-    messages: 1247,
-    threats: 15,
-    suspicious: 23,
-    clean: 1209,
-    risk: "Critical",
-    time: "2h ago",
-    duration: "8.7s",
-    deltaMessages: "+9%",
-    deltaThreats: "+4%",
-    deltaSuspicious: "-2%",
-    deltaClean: "+11%",
-  },
-  {
-    id: 3,
-    platform: "4chan",
-    type: "File Scan",
-    target: "group_chat_export.txt",
-    messages: 89,
-    threats: 0,
-    suspicious: 2,
-    clean: 87,
-    risk: "Low",
-    time: "4h ago",
-    duration: "1.3s",
-    deltaMessages: "+5%",
-    deltaThreats: "0%",
-    deltaSuspicious: "-1%",
-    deltaClean: "+7%",
-  },
-];
 const platformOptions = [
   { label: "All Platforms", value: "all" },
   { label: "Discord", value: "discord" },
@@ -101,12 +49,14 @@ export default function ScanHistory() {
   const [query, setQuery] = useState("");
   const [summary, setSummary] = useState<ScanHistorySummary | null>(null);
   const [summaryError, setSummaryError] = useState("");
+  const [overviewError, setOverviewError] = useState("");
+  const [scans, setScans] = useState<Scan[]>([]);
   const [exportingType, setExportingType] = useState<ScanHistoryExportType | null>(null);
   const [exportError, setExportError] = useState("");
 
   const filteredScans = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return SCANS.filter((scan) => {
+    return scans.filter((scan) => {
       const matchPlatform =
         platform === "all" || scan.platform.toLowerCase() === platform;
       const matchQuery =
@@ -116,7 +66,7 @@ export default function ScanHistory() {
         scan.target.toLowerCase().includes(q);
       return matchPlatform && matchQuery;
     });
-  }, [platform, query]);
+  }, [platform, query, scans]);
 
   const totalScans = filteredScans.length;
   const totalThreats = filteredScans.reduce((s, x) => s + x.threats, 0);
@@ -137,6 +87,44 @@ export default function ScanHistory() {
           error instanceof Error ? error.message : "Failed to load summary.",
         );
       });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getScanHistoryOverviewList()
+      .then((items: ScanHistoryOverviewItem[]) => {
+        if (!mounted) return;
+        setScans(
+          items.map((item) => ({
+            id: item.scanId,
+            platform: item.platform,
+            type: "Overview",
+            target: item.scrapes,
+            messages: item.messagesScanned,
+            threats: item.threatsDetected,
+            suspicious: item.suspicious,
+            clean: item.cleanRecords,
+            risk: item.activeThreat ? "High" : "Low",
+            time: item.lastScanAgo,
+            duration: `${item.scanCompletedSecs}s`,
+            deltaMessages: "0%",
+            deltaThreats: "0%",
+            deltaSuspicious: "0%",
+            deltaClean: "0%",
+            activeThreat: item.activeThreat,
+          })),
+        );
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        setOverviewError(
+          error instanceof Error ? error.message : "Failed to load scan history list.",
+        );
+      });
+
     return () => {
       mounted = false;
     };
@@ -183,6 +171,7 @@ export default function ScanHistory() {
         <Stat title="Success Rate" value={`${summary?.successRate ?? successRate}%`} success />
       </div>
       {summaryError ? <p className="text-sm text-rose-300">{summaryError}</p> : null}
+      {overviewError ? <p className="text-sm text-rose-300">{overviewError}</p> : null}
 
       {/* FILTER BAR */}
       <Card
@@ -227,7 +216,6 @@ export default function ScanHistory() {
           <ScanCard
             key={scan.id}
             scan={scan}
-            onExport={() => setOpenExport(true)}
           />
         ))}
         {filteredScans.length === 0 ? (
@@ -316,10 +304,8 @@ function Stat({
 
 function ScanCard({
   scan,
-  onExport,
 }: {
   scan: Scan;
-  onExport: () => void;
 }) {
   return (
     <Card
@@ -365,7 +351,7 @@ function ScanCard({
             Scan completed in {scan.duration}
           </span>
 
-          {scan.threats > 0 ? (
+          {scan.activeThreat || scan.threats > 0 ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/35 bg-red-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-red-400">
               <AlertTriangle size={13} />
               Active threat detected

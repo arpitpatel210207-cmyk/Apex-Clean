@@ -1,7 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  getScanHistoryOverviewList,
+  type ScanHistoryOverviewItem,
+} from "@/services/scan-history";
+import {
+  getTelegramChannels,
+  scrapeTelegram,
+  type TelegramChannel,
+  type TelegramScrapeItem,
+} from "@/services/telegram";
 import {
   Send,
   Users,
@@ -14,6 +26,114 @@ import {
 export default function TelegramLiveScanPage() {
   const [target, setTarget] = useState("");
   const [apexModel, setApexModel] = useState<"small" | "large">("small");
+  const [channels, setChannels] = useState<TelegramChannel[]>([]);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(true);
+  const [channelsError, setChannelsError] = useState<string | null>(null);
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [scrapeItems, setScrapeItems] = useState<TelegramScrapeItem[]>([]);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [latestTelegramHistory, setLatestTelegramHistory] = useState<ScanHistoryOverviewItem[]>([]);
+
+  const latestHistory = latestTelegramHistory[0] ?? null;
+  const selectedChannel = channels.find((channel) => channel.id === target);
+
+  const messagesScanned =
+    latestHistory?.messagesScanned ?? (scrapeItems.length > 0 ? scrapeItems.length : 0);
+  const threatsDetected = latestHistory?.threatsDetected ?? 0;
+  const suspiciousActivity = latestHistory?.suspicious ?? 0;
+  const cleanRecords =
+    latestHistory?.cleanRecords ?? Math.max(messagesScanned - threatsDetected - suspiciousActivity, 0);
+  const scanCompletedSecs = latestHistory?.scanCompletedSecs ?? 0;
+  const hasActiveThreat = latestHistory?.activeThreat ?? threatsDetected > 0;
+  const latestTarget = latestHistory?.scrapes || selectedChannel?.title || "Overview";
+
+  useEffect(() => {
+    let mounted = true;
+
+    getTelegramChannels()
+      .then((items) => {
+        if (!mounted) return;
+        setChannels(items);
+        setChannelsError(null);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        const message = error instanceof Error ? error.message : "Failed to load Telegram channels.";
+        setChannelsError(message);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoadingChannels(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getScanHistoryOverviewList()
+      .then((items) => {
+        if (!mounted) return;
+        const telegramItems = items
+          .filter((item) => item.platform.toLowerCase() === "telegram")
+          .sort((a, b) => {
+            const aTs = Date.parse(a.lastScanAt || "");
+            const bTs = Date.parse(b.lastScanAt || "");
+            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+          })
+          .slice(0, 10);
+
+        setLatestTelegramHistory(telegramItems);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setLatestTelegramHistory([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleStartMonitoring() {
+    if (!target || isScraping) return;
+
+    const resolvedUsername = (selectedChannel?.username ?? "").trim();
+    if (!resolvedUsername) {
+      setScrapeError("Selected channel does not include a username.");
+      return;
+    }
+    setIsScraping(true);
+    setScrapeError(null);
+
+    try {
+      const items = await scrapeTelegram({
+        channelId: target,
+        channelTitle: selectedChannel?.title,
+        username: resolvedUsername,
+        apexModel,
+      });
+      setScrapeItems(items);
+      setLastUpdatedAt(
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+      toast.success(`Successfully scraped ${items.length} item${items.length === 1 ? "" : "s"}.`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch Telegram scrape results.";
+      setScrapeError(message);
+      setScrapeItems([]);
+    } finally {
+      setIsScraping(false);
+    }
+  }
 
   return (
     <div className="space-y-6 sm:space-y-7">
@@ -32,8 +152,8 @@ export default function TelegramLiveScanPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
+      <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <Card className="h-[340px] space-y-3 overflow-y-auto border border-[#2a3a45]/55 bg-card p-4 sm:p-5">
           <h3 className="flex items-center gap-2 text-base font-semibold text-text">
             <Search className="h-4.5 w-4.5 text-brand" />
             Group Chat Monitoring
@@ -73,34 +193,70 @@ export default function TelegramLiveScanPage() {
             <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
               Channel or Group
             </label>
-            <input
-              className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
-              placeholder="Enter group/channel name or invite link"
+            <Select
+              className="!border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
               value={target}
               onChange={(event) => setTarget(event.target.value)}
-            />
+              disabled={isLoadingChannels || channels.length === 0}
+            >
+              <option value="">
+                {isLoadingChannels
+                  ? "Loading channels..."
+                  : channels.length > 0
+                    ? "Select channel or group"
+                    : "No channels available"}
+              </option>
+              {channels.map((channel) => (
+                <option key={channel.id} value={channel.id}>
+                  {channel.title}
+                </option>
+              ))}
+            </Select>
+            {channelsError ? (
+              <p className="text-xs text-rose-300">{channelsError}</p>
+            ) : null}
           </div>
 
-          <button className="w-full rounded-xl border border-[#4f6d81]/55 bg-[rgba(111,196,231,0.92)] py-2.5 text-sm font-semibold text-[#0f172a] transition hover:brightness-95">
-            Start Monitoring
+          <button
+            type="button"
+            onClick={handleStartMonitoring}
+            disabled={!target || isScraping}
+            className="w-full rounded-xl border border-[#4f6d81]/55 bg-[rgba(111,196,231,0.92)] py-2.5 text-sm font-semibold text-[#0f172a] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isScraping ? "Monitoring..." : "Start Monitoring"}
           </button>
+          {scrapeError ? <p className="text-xs text-rose-300">{scrapeError}</p> : null}
         </Card>
 
-        <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
+        <Card className="space-y-3 self-start border border-[#2a3a45]/55 bg-card p-4 sm:p-5">
           <h3 className="flex items-center gap-2 text-base font-semibold text-text">
             <Users className="h-4.5 w-4.5 text-brand" />
             Active Watchlist
           </h3>
 
-          <div className="space-y-2">
-            <WatchRow name="@market_signals_hub" tags="2 keywords" />
-            <WatchRow name="CityDeals_Group" tags="5 keywords" />
-            <WatchRow name="@late_night_orders" tags="3 keywords" />
+          <div className="max-h-[262px] space-y-2 overflow-y-auto pr-1">
+            {channels.length === 0 ? (
+              <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(18,22,28,0.45)] px-3 py-2 text-xs text-mutetext">
+                {isLoadingChannels ? "Loading watchlist..." : "No channels in watchlist."}
+              </div>
+            ) : (
+              channels.map((channel) => (
+                <WatchRow
+                  key={channel.id}
+                  name={
+                    channel.scrapeKey ||
+                    channel.peerId ||
+                    channel.username ||
+                    channel.title ||
+                    "No scrape_key"
+                  }
+                  tags={channel.type}
+                />
+              ))
+            )}
           </div>
 
-          <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.06)] px-3 py-2 text-xs text-mutetext">
-            New alerts are pushed automatically while monitoring remains active.
-          </div>
+         
         </Card>
       </div>
 
@@ -108,30 +264,50 @@ export default function TelegramLiveScanPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand" />
-            <h3 className="font-semibold text-text">Scan Results - Telegram</h3>
+            <div>
+              <h3 className="font-semibold text-text">Scan Results - Telegram</h3>
+              <p className="text-sm text-mutetext">
+                {latestTarget} • Overview
+              </p>
+            </div>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-xs text-brand">
             <Clock3 size={12} />
-            Updated just now
+            {latestHistory?.lastScanAgo
+              ? `Last scan: ${latestHistory.lastScanAgo}`
+              : lastUpdatedAt
+                ? `Updated at ${lastUpdatedAt}`
+                : "Waiting for first scan"}
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
-          <ResultStat value="494" label="Total Messages" tone="brand" />
-          <ResultStat value="3" label="Threats Detected" tone="danger" />
-          <ResultStat value="12" label="Suspicious" tone="warning" />
-          <ResultStat value="479" label="Clean Messages" tone="success" />
+          <ResultStat value={String(messagesScanned)} label="MESSAGES SCANNED" tone="brand" />
+          <ResultStat value={String(threatsDetected)} label="THREATS DETECTED" tone="danger" />
+          <ResultStat value={String(suspiciousActivity)} label="SUSPICIOUS ACTIVITY" tone="warning" />
+          <ResultStat value={String(cleanRecords)} label="CLEAN RECORDS" tone="success" />
         </div>
 
-        <div className="flex flex-wrap gap-2 text-sm">
-          <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
-            Scan completed in 0.91s
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-rose-300">
-            <AlertTriangle size={14} />
-            High Priority Alert
-          </span>
-        </div>
+        {messagesScanned > 0 ? (
+          <div className="flex flex-wrap gap-2 text-sm font-semibold">
+            {scanCompletedSecs > 0 ? (
+              <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
+                SCAN COMPLETED IN {scanCompletedSecs.toFixed(2)}S
+              </span>
+            ) : null}
+            {hasActiveThreat ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/35 bg-rose-500/10 px-3 py-1 text-rose-300">
+                <AlertTriangle size={14} />
+                ACTIVE THREAT DETECTED
+              </span>
+            ) : null}
+            {!hasActiveThreat && scanCompletedSecs <= 0 ? (
+            <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
+                Latest scrape returned {messagesScanned} item{messagesScanned === 1 ? "" : "s"}
+            </span>
+            ) : null}
+          </div>
+        ) : null}
       </Card>
     </div>
   );

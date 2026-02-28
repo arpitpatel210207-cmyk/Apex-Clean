@@ -41,6 +41,8 @@ const PLATFORM_ROUTE_FALLBACK: Partial<Record<PlatformKey, string[]>> = {
   telegram: ["/dashboard/platform/telegram"],
 };
 
+let monitoringInFlight: Promise<DashboardMonitoringResponse> | null = null;
+
 async function request<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     cache: "no-store",
@@ -290,11 +292,14 @@ export async function getDashboardWeeklyOverview(): Promise<WeeklyOverviewPoint[
 }
 
 export async function getDashboardMonitoring(): Promise<DashboardMonitoringResponse> {
+  if (monitoringInFlight) {
+    return monitoringInFlight;
+  }
+
   const fetchPlatform = async (platform: PlatformKey): Promise<unknown> => {
-    const candidates = [
-      PLATFORM_ROUTE[platform],
-      ...(PLATFORM_ROUTE_FALLBACK[platform] ?? []),
-    ];
+    const candidates = Array.from(
+      new Set([PLATFORM_ROUTE[platform], ...(PLATFORM_ROUTE_FALLBACK[platform] ?? [])]),
+    );
 
     let lastError: unknown = null;
     for (const path of candidates) {
@@ -307,21 +312,29 @@ export async function getDashboardMonitoring(): Promise<DashboardMonitoringRespo
     throw lastError ?? new Error(`Failed to load ${platform} platform data.`);
   };
 
-  const [chanRes, telegramRes, discordRes] = await Promise.allSettled([
-    fetchPlatform("4chan"),
-    fetchPlatform("telegram"),
-    fetchPlatform("discord"),
-  ]);
+  monitoringInFlight = (async () => {
+    const [chanRes, telegramRes, discordRes] = await Promise.allSettled([
+      fetchPlatform("4chan"),
+      fetchPlatform("telegram"),
+      fetchPlatform("discord"),
+    ]);
 
-  return {
-    "4chan": normalizePlatform(
-      chanRes.status === "fulfilled" ? chanRes.value : null,
-    ),
-    telegram: normalizePlatform(
-      telegramRes.status === "fulfilled" ? telegramRes.value : null,
-    ),
-    discord: normalizePlatform(
-      discordRes.status === "fulfilled" ? discordRes.value : null,
-    ),
-  };
+    return {
+      "4chan": normalizePlatform(
+        chanRes.status === "fulfilled" ? chanRes.value : null,
+      ),
+      telegram: normalizePlatform(
+        telegramRes.status === "fulfilled" ? telegramRes.value : null,
+      ),
+      discord: normalizePlatform(
+        discordRes.status === "fulfilled" ? discordRes.value : null,
+      ),
+    };
+  })();
+
+  try {
+    return await monitoringInFlight;
+  } finally {
+    monitoringInFlight = null;
+  }
 }
