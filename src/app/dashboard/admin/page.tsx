@@ -13,7 +13,7 @@ import {
   createAdmin,
   deleteAdmin,
   getAdmins,
-  patchAdmin,
+  setAdminStatus,
   type AdminRecord,
   type AdminRole,
 } from "@/services/admin";
@@ -208,7 +208,7 @@ export default function AdminsPage() {
   }, []);
 
   async function toggleStatus(id: string, nextStatus: Admin["status"]) {
-    const updated = await patchAdmin(id, { status: nextStatus });
+    const updated = await setAdminStatus(id, nextStatus);
     setAdmins((prev) => prev.map((admin) => (admin.id === id ? updated : admin)));
   }
 
@@ -304,17 +304,17 @@ export default function AdminsPage() {
             </Button>
           </div>
 
-          {loading ? (
-            <CardContent className="py-8 text-center text-sm text-mutetext">
-              Loading admins...
-            </CardContent>
-          ) : null}
           {pageError ? (
             <CardContent className="pt-4 pb-0 text-sm text-rose-300">
               {pageError}
             </CardContent>
           ) : null}
           <div className="space-y-3 p-3 md:hidden">
+            {loading ? (
+              <CardContent className="py-8 text-center text-sm text-mutetext">
+                Loading admins...
+              </CardContent>
+            ) : null}
             {admins.map((admin) => (
               <AdminMobileCard
                 key={admin.id}
@@ -346,6 +346,11 @@ export default function AdminsPage() {
               </span>
             ))}
           </div>
+          {loading ? (
+            <CardContent className="hidden py-8 text-center text-sm text-mutetext md:block">
+              Loading admins...
+            </CardContent>
+          ) : null}
           <div className="hidden divide-y divide-[#2a3a45]/35 md:block">
             {admins.map((admin) => (
               <AdminRow

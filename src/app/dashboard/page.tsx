@@ -8,9 +8,6 @@ import {
   UserPlus,
   ShieldAlert,
   Clock,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
 } from "lucide-react";
 import { Globe, Send, MessageCircle } from "lucide-react";
 import { TimelineChart } from "@/components/dashboard/timeline";
@@ -62,24 +59,20 @@ function getTrend(
   options?: { alertOnIncrease?: boolean; alertLabel?: string },
 ) {
   const delta = current - previous;
-  const percent = previous === 0 ? 0 : (Math.abs(delta) / previous) * 100;
 
   if (options?.alertOnIncrease && delta > 0) {
-    return {
-      status: "alert" as Trend,
-      trendText: options.alertLabel ?? "Action Required",
-    };
+    return "alert" as Trend;
   }
 
   if (delta > 0) {
-    return { status: "up" as Trend, trendText: `+${percent.toFixed(1)}% increase` };
+    return "up" as Trend;
   }
 
   if (delta < 0) {
-    return { status: "down" as Trend, trendText: `-${percent.toFixed(1)}% dip` };
+    return "down" as Trend;
   }
 
-  return { status: "up" as Trend, trendText: "No change" };
+  return "up" as Trend;
 }
 
 export default function DashboardPage() {
@@ -165,8 +158,7 @@ export default function DashboardPage() {
             title={card.title}
             value={card.current}
             icon={card.icon}
-            trend={computed.trendText}
-            status={computed.status}
+            status={computed}
             unit={card.unit}
             revealDelayMs={80 + index * 80}
           />
@@ -276,7 +268,6 @@ export default function DashboardPage() {
 function Stat({
   title,
   value,
-  trend,
   status,
   unit,
   revealDelayMs = 0,
@@ -284,37 +275,25 @@ function Stat({
 }: {
   title: string;
   value: string | number;
-  trend: string;
   status: Trend;
   unit?: string;
   revealDelayMs?: number;
   icon: LucideIcon;
 }) {
-  const tones: Record<Trend, { text: string; accent: string; pill: string }> = {
+  const tones: Record<Trend, { text: string; accent: string }> = {
     up: {
       text: "text-emerald-300",
       accent: "bg-emerald-300",
-      pill: "bg-emerald-400/15 text-emerald-200 border border-emerald-300/35",
     },
     down: {
       text: "text-rose-300",
       accent: "bg-rose-300",
-      pill: "bg-rose-400/15 text-rose-200 border border-rose-300/35",
     },
     alert: {
       text: "text-amber-300",
       accent: "bg-amber-300",
-      pill: "bg-amber-400/15 text-amber-200 border border-amber-300/35",
     },
   };
-
-  const trendIcon: Record<Trend, LucideIcon> = {
-    up: TrendingUp,
-    down: TrendingDown,
-    alert: AlertTriangle,
-  };
-
-  const TrendIcon = trendIcon[status];
   const [countValue, setCountValue] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState<boolean | null>(null);
@@ -405,13 +384,6 @@ function Stat({
           {shownValue}
           {unit ? <span className="ml-1 text-[14px] tabular-nums">{unit}</span> : null}
         </div>
-
-        <div
-          className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] ${tones[status].pill}`}
-        >
-          <TrendIcon className="h-3.5 w-3.5" />
-          <span>{trend}</span>
-        </div>
       </Card>
     </div>
   );
@@ -499,7 +471,7 @@ function PlatformCard({
           <div className="grid h-9 w-9 place-items-center rounded-lg border border-border/60 bg-card2/70">
             <Icon className="h-5 w-5 text-brand" />
           </div>
-          <h3 className="text-[15px] font-semibold tracking-[0.01em]">{title}</h3>
+          <h3 className="text-[18px] font-semibold tracking-[0.01em]">{title}</h3>
         </div>
 
         <div className="pt-1">
@@ -587,9 +559,9 @@ function PillBarsChart({
           </span>
         ))}
       </div>
-      <p className="mt-1 text-[12px] font-medium tracking-[0.04em] text-brand">
+      {/* <p className="mt-1 text-[12px] font-medium tracking-[0.04em] text-brand">
         Activity trend
-      </p>
+      </p> */}
     </div>
   );
 }

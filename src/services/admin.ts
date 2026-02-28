@@ -243,6 +243,43 @@ export async function patchAdmin(
   return normalizeAdmin((unwrapped ?? {}) as Record<string, unknown>);
 }
 
+export async function setAdminStatus(
+  id: string,
+  status: AdminStatus,
+): Promise<AdminRecord> {
+  const statusAsNumber = status === "ACTIVE" ? 1 : 0;
+  const statusAsString = toApiStatus(status);
+
+  try {
+    const response = await request<unknown>(`${ADMINS_RESOURCE_PATH}/${id}/toggle-status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    const unwrapped = unwrapData<unknown>(response);
+    return normalizeAdmin((unwrapped ?? {}) as Record<string, unknown>);
+  } catch {
+    try {
+      const response = await request<unknown>(`${ADMINS_RESOURCE_PATH}/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: statusAsNumber }),
+      });
+      const unwrapped = unwrapData<unknown>(response);
+      return normalizeAdmin((unwrapped ?? {}) as Record<string, unknown>);
+    } catch {
+      try {
+        const response = await request<unknown>(`${ADMINS_RESOURCE_PATH}/${id}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: statusAsString }),
+        });
+        const unwrapped = unwrapData<unknown>(response);
+        return normalizeAdmin((unwrapped ?? {}) as Record<string, unknown>);
+      } catch {
+        return patchAdmin(id, { status });
+      }
+    }
+  }
+}
+
 export async function deleteAdmin(id: string): Promise<void> {
   await request<unknown>(`${ADMINS_RESOURCE_PATH}/${id}`, {
     method: "DELETE",

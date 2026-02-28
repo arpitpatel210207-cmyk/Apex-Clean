@@ -159,7 +159,7 @@ export function TimelineChart() {
           colors={["#ef4444", "#22d3ee", "#22c55e"]}
           animationSpeed={8}
           showBorder={false}
-          className="!mx-0 cursor-default text-lg font-semibold"
+          className="!mx-0 cursor-default text-[22px] font-semibold"
         >
           Weekly Activity
         </GradientText>

@@ -30,10 +30,10 @@ export default function DiscordLiveScanPage() {
               </p>
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+          {/* <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Live
-          </span>
+          </span> */}
         </div>
       </Card>
 
