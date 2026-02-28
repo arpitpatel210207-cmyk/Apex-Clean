@@ -1,11 +1,17 @@
 "use client";
 
-import { Bell, Menu, UserCircle2 } from "lucide-react";
+import { Bell, UserCircle2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
+export function Topbar({
+  onMenuToggle,
+  isMenuOpen = false,
+}: {
+  onMenuToggle?: () => void;
+  isMenuOpen?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const profileWrapRef = useRef<HTMLDivElement | null>(null);
@@ -94,11 +100,33 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       <div className="flex items-center justify-between px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button
-            onClick={onMenuClick}
-            className="topbar-glass-action rounded-lg p-2 text-[#e6f5fa] transition lg:hidden"
-            aria-label="Open menu"
+            onClick={onMenuToggle}
+            className="topbar-glass-action relative grid h-10 w-10 place-items-center rounded-lg p-2 text-[#e6f5fa] transition lg:hidden"
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
+            aria-controls="mobile-sidebar-drawer"
           >
-            <Menu size={18} />
+            <span
+              className={`relative h-[14px] w-[18px] transition-transform duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isMenuOpen ? "rotate-90" : "rotate-0"
+              }`}
+            >
+              <span
+                className={`absolute left-0 top-0 h-[2px] w-[18px] origin-center rounded-full bg-current transition-[transform,top,opacity] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  isMenuOpen ? "top-[6px] rotate-45" : "rotate-0"
+                }`}
+              />
+              <span
+                className={`absolute left-0 top-[6px] h-[2px] w-[18px] rounded-full bg-current transition-[opacity,transform] duration-[220ms] ease-out ${
+                  isMenuOpen ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
+                }`}
+              />
+              <span
+                className={`absolute left-0 top-[12px] h-[2px] w-[18px] origin-center rounded-full bg-current transition-[transform,top] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  isMenuOpen ? "top-[6px] -rotate-45" : "rotate-0"
+                }`}
+              />
+            </span>
           </button>
           <h1 className="topbar-title m-0 truncate text-[#e6f5fa] text-2xl sm:text-3xl lg:text-[34px]">{title}</h1>
         </div>

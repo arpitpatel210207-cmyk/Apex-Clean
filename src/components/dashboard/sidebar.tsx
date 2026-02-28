@@ -25,10 +25,14 @@ export function SidebarContent({
   onNavigate,
   compact = false,
   expanded = false,
+  mobileDrawerOpen = false,
+  mobileDrawerMode = false,
 }: {
   onNavigate?: () => void;
   compact?: boolean;
   expanded?: boolean;
+  mobileDrawerOpen?: boolean;
+  mobileDrawerMode?: boolean;
 }) {
   const pathname = usePathname();
   const liveScanActive = pathname.startsWith("/dashboard/live-scan");
@@ -36,6 +40,21 @@ export function SidebarContent({
   const detailDelay = expanded ? "80ms" : "0ms";
   const canShowSubmenu = !compact || expanded;
   const liveScanOpen = canShowSubmenu && liveScanManuallyOpen;
+  const enableDrawerStagger = compact && expanded && mobileDrawerMode;
+
+  const getStaggerStyle = (_index: number) =>
+    enableDrawerStagger
+      ? {
+          transitionDelay: "0ms",
+        }
+      : undefined;
+
+  const getStaggerClass = () =>
+    enableDrawerStagger
+      ? `transition-[opacity,transform] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          mobileDrawerOpen ? "translate-x-0 opacity-100" : "-translate-x-6 opacity-0"
+        }`
+      : "";
 
   function handleNavClick() {
     setLiveScanManuallyOpen(false);
@@ -46,7 +65,9 @@ export function SidebarContent({
     <div
       className={`flex h-full min-h-0 w-full flex-col ${
         compact
-          ? `rounded-[30px] border border-[rgba(230,245,250,0.2)] bg-[rgb(22,22,22)] pl-2 pr-1 py-3 shadow-[0_1px_0_rgba(255,255,255,0.05),0_10px_22px_rgba(0,0,0,0.44),inset_0_1px_0_rgba(255,255,255,0.03),inset_0_-1px_0_rgba(0,0,0,0.36)] transition-[box-shadow,border-color,background-color] ${SIDEBAR_MOTION}`
+          ? mobileDrawerMode
+            ? `rounded-2xl border border-[rgba(230,245,250,0.16)] bg-[linear-gradient(180deg,rgba(20,22,24,0.96),rgba(15,17,20,0.98))] pl-2.5 pr-1.5 py-3 shadow-[0_20px_38px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.04)] transition-[box-shadow,border-color,background-color] ${SIDEBAR_MOTION}`
+            : `rounded-[30px] border border-[rgba(230,245,250,0.2)] bg-[rgb(22,22,22)] pl-2 pr-1 py-3 shadow-[0_1px_0_rgba(255,255,255,0.05),0_10px_22px_rgba(0,0,0,0.44),inset_0_1px_0_rgba(255,255,255,0.03),inset_0_-1px_0_rgba(0,0,0,0.36)] transition-[box-shadow,border-color,background-color] ${SIDEBAR_MOTION}`
           : "px-4 py-5"
       }`}
     >
@@ -72,9 +93,13 @@ export function SidebarContent({
         } text-[#e6f5fa] text-[15px] font-medium`}
       >
        
-        <NavItem href="/dashboard/admin" icon={<Users size={18} />} label="Admins" onClick={handleNavClick} compact={compact} expanded={expanded} />
-         <NavItem href="/dashboard" icon={<LayoutDashboard size={18} />} label="Dashboard" onClick={handleNavClick} compact={compact} expanded={expanded} />
-        <div className="space-y-1">
+        <div className={getStaggerClass()} style={getStaggerStyle(0)}>
+          <NavItem href="/dashboard/admin" icon={<Users size={18} />} label="Admins" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
+        <div className={getStaggerClass()} style={getStaggerStyle(1)}>
+          <NavItem href="/dashboard" icon={<LayoutDashboard size={18} />} label="Dashboard" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
+        <div className={`space-y-1 ${getStaggerClass()}`} style={getStaggerStyle(2)}>
           <div
             role="button"
             tabIndex={0}
@@ -119,7 +144,9 @@ export function SidebarContent({
           {canShowSubmenu ? (
             <div
               className={`overflow-hidden transition-[max-height,opacity,transform] ${SIDEBAR_MOTION} ${
-                liveScanOpen ? "max-h-52 opacity-100 translate-y-0" : "max-h-0 opacity-0 -translate-y-1"
+                liveScanOpen
+                  ? `max-h-52 opacity-100 ${mobileDrawerMode ? "translate-x-0" : "translate-y-0"}`
+                  : `max-h-0 opacity-0 ${mobileDrawerMode ? "-translate-x-2" : "-translate-y-1"}`
               }`}
             >
               <div className="mt-1 space-y-1 pl-2">
@@ -130,11 +157,21 @@ export function SidebarContent({
             </div>
           ) : null}
         </div>
-        <NavItem href="/dashboard/scan-history" icon={<History size={18} />} label="Scan History" onClick={handleNavClick} compact={compact} expanded={expanded} />
-        <NavItem href="/dashboard/voice-scan" icon={<Voicemail size={18} />} label="Voice Scan" onClick={handleNavClick} compact={compact} expanded={expanded} />
-        <NavItem href="/dashboard/track-users" icon={<MapPin size={18} />} label="Track Users" onClick={handleNavClick} compact={compact} expanded={expanded} />
-        <NavItem href="/dashboard/geo/region" icon={<Globe size={18} />} label="Geographic Activity" onClick={handleNavClick} compact={compact} expanded={expanded} />
-        <NavItem href="/dashboard/about-us" icon={<Info size={18} />} label="About Us" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        <div className={getStaggerClass()} style={getStaggerStyle(3)}>
+          <NavItem href="/dashboard/scan-history" icon={<History size={18} />} label="Scan History" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
+        <div className={getStaggerClass()} style={getStaggerStyle(4)}>
+          <NavItem href="/dashboard/voice-scan" icon={<Voicemail size={18} />} label="Voice Scan" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
+        <div className={getStaggerClass()} style={getStaggerStyle(5)}>
+          <NavItem href="/dashboard/track-users" icon={<MapPin size={18} />} label="Track Users" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
+        <div className={getStaggerClass()} style={getStaggerStyle(6)}>
+          <NavItem href="/dashboard/geo/region" icon={<Globe size={18} />} label="Geographic Activity" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
+        <div className={getStaggerClass()} style={getStaggerStyle(7)}>
+          <NavItem href="/dashboard/about-us" icon={<Info size={18} />} label="About Us" onClick={handleNavClick} compact={compact} expanded={expanded} />
+        </div>
       </nav>
 
     </div>
