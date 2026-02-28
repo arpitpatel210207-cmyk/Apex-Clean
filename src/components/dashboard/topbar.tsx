@@ -46,6 +46,8 @@ export function Topbar({
       "/dashboard/live-scan/4chan": "4chan Monitoring",
     };
 
+    if (/^\/dashboard\/admin\/[^/]+\/edit$/.test(pathname)) return "Edit Admin";
+    if (/^\/dashboard\/admin\/[^/]+$/.test(pathname)) return "Admin Details";
     if (map[pathname]) return map[pathname];
     if (pathname.startsWith("/dashboard/geo/")) return "Geographic Activity";
     return "Dashboard";

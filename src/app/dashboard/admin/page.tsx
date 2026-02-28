@@ -8,16 +8,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CreateModal } from "@/components/ui/create-modal";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Switch } from "@/components/ui/switch";
-import { Mail, Pencil, Plus, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import { Eye, Info, Mail, Pencil, Plus, ShieldCheck, Trash2, UserCog, Users } from "lucide-react";
+import {
+  createAdmin,
+  deleteAdmin,
+  getAdmins,
+  patchAdmin,
+  type AdminRecord,
+  type AdminRole,
+} from "@/services/admin";
 
-type Admin = {
-  id: number;
-  name: string;
-  email: string;
-  role: "SUPER_ADMIN" | "SUB_ADMIN";
-  status: "ACTIVE" | "INACTIVE";
-  created: string;
-};
+type Admin = AdminRecord;
 
 type AdminCellCtx = {
   admin: Admin;
@@ -35,50 +36,15 @@ type AdminColumn = {
 type ConfirmState =
   | {
       mode: "toggle";
-      adminId: number;
+      adminId: string;
       adminName: string;
       nextStatus: "ACTIVE" | "INACTIVE";
     }
   | {
       mode: "delete";
-      adminId: number;
+      adminId: string;
       adminName: string;
     };
-
-const ADMINS: Admin[] = [
-  {
-    id: 1,
-    name: "Arpit Patel",
-    email: "arpit.patel@nexus.in",
-    role: "SUPER_ADMIN",
-    status: "ACTIVE",
-    created: "2025-02-01",
-  },
-  {
-    id: 2,
-    name: "Kavya Mehta",
-    email: "kavyaisop@nexus.in",
-    role: "SUB_ADMIN",
-    status: "ACTIVE",
-    created: "2025-02-02",
-  },
-  {
-    id: 3,
-    name: "Rashi Shah",
-    email: "rashishah@nexus.in",
-    role: "SUB_ADMIN",
-    status: "INACTIVE",
-    created: "2025-02-03",
-  },
-  {
-    id: 4,
-    name: "Het Shah",
-    email: "het.shah@nexus.in",
-    role: "SUB_ADMIN",
-    status: "INACTIVE",
-    created: "2025-02-03",
-  },
-];
 
 function createAdminColumnHelper() {
   return {
@@ -149,7 +115,9 @@ const adminColumns: AdminColumn[] = [
   }),
   column.accessor("created", {
     header: "Created",
-    cell: (value) => <span className="text-xs text-mutetext">Created {value}</span>,
+    cell: (value) => (
+      <span className="text-xs text-mutetext">Created {value || "--"}</span>
+    ),
   }),
   column.display({
     id: "status",
@@ -167,6 +135,14 @@ const adminColumns: AdminColumn[] = [
     className: "text-right",
     cell: ({ admin, onDelete }) => (
       <div className="flex items-center justify-start gap-3 md:justify-end">
+        <Link
+          href={`/dashboard/admin/${admin.id}`}
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-2xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.14)] px-3 text-xs font-semibold text-[#b9deee] transition hover:bg-[rgba(111,196,231,0.2)]"
+          aria-label={`View details for ${admin.name}`}
+        >
+          <Eye size={14} />
+          Details
+        </Link>
         <Link
           href={`/dashboard/admin/${admin.id}/edit`}
           className="inline-flex h-9 w-11 items-center justify-center rounded-2xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.14)] text-[#b9deee] transition hover:bg-[rgba(111,196,231,0.2)]"
@@ -187,15 +163,18 @@ const adminColumns: AdminColumn[] = [
 ];
 
 export default function AdminsPage() {
-  const [admins, setAdmins] = useState<Admin[]>(ADMINS);
+  const [admins, setAdmins] = useState<Admin[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
   const [createDraft, setCreateDraft] = useState({
     name: "",
     email: "",
+    mobile: "",
     password: "",
     confirmPassword: "",
-    role: "" as "" | Admin["role"],
+    role: "" as "" | AdminRole,
   });
   const [createError, setCreateError] = useState("");
 
@@ -206,29 +185,45 @@ export default function AdminsPage() {
     return { total, active, superAdmins };
   }, [admins]);
 
-  function toggleStatus(id: number) {
-    setAdmins((prev) =>
-      prev.map((admin) =>
-        admin.id === id
-          ? {
-              ...admin,
-              status: admin.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
-            }
-          : admin,
-      ),
-    );
+  useEffect(() => {
+    let isMounted = true;
+    getAdmins()
+      .then((items) => {
+        if (!isMounted) return;
+        setAdmins(items);
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) return;
+        setPageError(
+          error instanceof Error ? error.message : "Failed to load admins.",
+        );
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function toggleStatus(id: string, nextStatus: Admin["status"]) {
+    const updated = await patchAdmin(id, { status: nextStatus });
+    setAdmins((prev) => prev.map((admin) => (admin.id === id ? updated : admin)));
   }
 
-  function removeAdmin(id: number) {
+  async function removeAdmin(id: string) {
+    await deleteAdmin(id);
     setAdmins((prev) => prev.filter((admin) => admin.id !== id));
   }
 
-  function addAdmin() {
+  async function addAdmin() {
     const name = createDraft.name.trim();
     const email = createDraft.email.trim();
+    const mobile = createDraft.mobile.trim();
     const { password, confirmPassword, role } = createDraft;
 
-    if (!name || !email || !password || !confirmPassword || !role) {
+    if (!name || !email || !mobile || !password || !confirmPassword || !role) {
       setCreateError("All fields are required.");
       return;
     }
@@ -237,38 +232,48 @@ export default function AdminsPage() {
       return;
     }
 
-    setAdmins((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
+    try {
+      const created = await createAdmin({
         name,
         email,
+        password,
         role,
-        status: "ACTIVE",
-        created: "2026-02-21",
-      },
-    ]);
-    setCreateOpen(false);
-    setCreateDraft({
-      name: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      role: "",
-    });
-    setCreateError("");
+        mobile,
+      });
+      setAdmins((prev) => [...prev, created]);
+      setCreateOpen(false);
+      setCreateDraft({
+        name: "",
+        email: "",
+        mobile: "",
+        password: "",
+        confirmPassword: "",
+        role: "",
+      });
+      setCreateError("");
+    } catch (error: unknown) {
+      setCreateError(
+        error instanceof Error ? error.message : "Failed to create admin.",
+      );
+    }
   }
 
-  function handleConfirmAction() {
+  async function handleConfirmAction() {
     if (!confirmState) return;
 
-    if (confirmState.mode === "toggle") {
-      toggleStatus(confirmState.adminId);
-    } else {
-      removeAdmin(confirmState.adminId);
+    try {
+      if (confirmState.mode === "toggle") {
+        await toggleStatus(confirmState.adminId, confirmState.nextStatus);
+      } else {
+        await removeAdmin(confirmState.adminId);
+      }
+      setConfirmState(null);
+      setPageError("");
+    } catch (error: unknown) {
+      setPageError(
+        error instanceof Error ? error.message : "Action failed. Try again.",
+      );
     }
-
-    setConfirmState(null);
   }
 
   return (
@@ -299,6 +304,16 @@ export default function AdminsPage() {
             </Button>
           </div>
 
+          {loading ? (
+            <CardContent className="py-8 text-center text-sm text-mutetext">
+              Loading admins...
+            </CardContent>
+          ) : null}
+          {pageError ? (
+            <CardContent className="pt-4 pb-0 text-sm text-rose-300">
+              {pageError}
+            </CardContent>
+          ) : null}
           <div className="space-y-3 p-3 md:hidden">
             {admins.map((admin) => (
               <AdminMobileCard
@@ -356,7 +371,7 @@ export default function AdminsPage() {
               />
             ))}
           </div>
-          {admins.length === 0 ? (
+          {!loading && admins.length === 0 ? (
             <CardContent className="py-10 text-center text-sm text-mutetext">
               No admins found.
             </CardContent>
@@ -410,7 +425,7 @@ export default function AdminsPage() {
             setCreateDraft((prev) => ({ ...prev, password: event.target.value }))
           }
         />
-        <input
+         <input
           type="password"
           className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
           placeholder="Confirm Password"
@@ -419,6 +434,16 @@ export default function AdminsPage() {
             setCreateDraft((prev) => ({ ...prev, confirmPassword: event.target.value }))
           }
         />
+        <input
+          type="tel"
+          className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+          placeholder="Mobile No."
+          value={createDraft.mobile}
+          onChange={(event) =>
+            setCreateDraft((prev) => ({ ...prev, mobile: event.target.value }))
+          }
+        />
+       
         <Dropdown
           value={createDraft.role}
           options={[
@@ -430,7 +455,7 @@ export default function AdminsPage() {
           onChange={(value) =>
             setCreateDraft((prev) => ({
               ...prev,
-              role: value as Admin["role"],
+              role: value as AdminRole,
             }))
           }
         />
@@ -551,11 +576,19 @@ function AdminMobileCard({
         </div>
 
         <div className="flex items-center justify-between rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.05)] px-3 py-2">
-          <span className="text-xs text-mutetext">Created {admin.created}</span>
+          <span className="text-xs text-mutetext">Created {admin.created || "--"}</span>
           <Switch checked={admin.status === "ACTIVE"} onChange={onToggle} />
         </div>
 
         <div className="flex items-center justify-end gap-2">
+          <Link
+            href={`/dashboard/admin/${admin.id}`}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.14)] px-3 text-xs font-semibold text-[#b9deee] transition hover:bg-[rgba(111,196,231,0.2)]"
+            aria-label={`View details for ${admin.name}`}
+          >
+            <Info size={14} />
+            Details
+          </Link>
           <Link
             href={`/dashboard/admin/${admin.id}/edit`}
             className="inline-flex h-9 w-11 items-center justify-center rounded-xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.14)] text-[#b9deee] transition hover:bg-[rgba(111,196,231,0.2)]"
