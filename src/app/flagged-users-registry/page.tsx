@@ -3,23 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
-  ArrowLeft,
-  ArchiveRestore,
   Star,
   Trash2,
   AlertTriangle,
-  Shield,
-  User,
-  Clock,
-  ChevronRight,
   Check,
   Square,
-  RefreshCw,
-  MoreHorizontal,
   Send,
-  X,
+  MapPin,
 } from "lucide-react";
-import Link from "next/link";
 
 type RiskLevel = "critical" | "high" | "medium";
 type PlatformSource = "telegram" | "discord" | "4chan";
@@ -33,6 +24,7 @@ type RegistryUser = {
   folder: Folder;
   risk: RiskLevel;
   reason: string;
+  location: string;
   lastActivity: string;
   summary: string;
   detectedIssues: string[];
@@ -48,6 +40,7 @@ const INITIAL_USERS: RegistryUser[] = [
     folder: "inbox",
     risk: "critical",
     reason: "Repeated synthetic opioid transaction patterns",
+    location: "Berlin, Germany",
     lastActivity: "2026-02-28 21:42",
     summary:
       "Cross-channel alias match with payment wallet reuse and location overlap across three incidents.",
@@ -66,6 +59,7 @@ const INITIAL_USERS: RegistryUser[] = [
     folder: "inbox",
     risk: "high",
     reason: "Distribution coordination language in private servers",
+    location: "New York, USA",
     lastActivity: "2026-02-28 18:05",
     summary:
       "Conversation snippets indicate logistical planning with repeated drop-point references.",
@@ -84,6 +78,7 @@ const INITIAL_USERS: RegistryUser[] = [
     folder: "inbox",
     risk: "high",
     reason: "Potential marketplace moderation and vendor shielding",
+    location: "Unknown",
     lastActivity: "2026-02-27 23:13",
     summary:
       "Moderation actions suggest coordinated effort to hide vendor contact details while preserving access.",
@@ -102,6 +97,7 @@ const INITIAL_USERS: RegistryUser[] = [
     folder: "inbox",
     risk: "medium",
     reason: "Logistics chatter with possible coded phrasing",
+    location: "Mumbai, India",
     lastActivity: "2026-02-27 17:29",
     summary:
       "Repeated references to route and timing in chats with two flagged clusters.",
@@ -119,6 +115,7 @@ const INITIAL_USERS: RegistryUser[] = [
     folder: "starred",
     risk: "medium",
     reason: "Historical suspicious links, now inactive",
+    location: "Kochi, India",
     lastActivity: "2026-02-20 11:04",
     summary:
       "Case closed after inactivity period and no corroborating activity in connected channels.",
@@ -133,6 +130,7 @@ const INITIAL_USERS: RegistryUser[] = [
     folder: "archive",
     risk: "critical",
     reason: "Active darknet marketplace vendor",
+    location: "Istanbul, Turkey",
     lastActivity: "2026-02-15 09:30",
     summary:
       "Verified vendor with multiple product listings and positive feedback scores.",
@@ -204,6 +202,19 @@ export default function FlaggedUsersRegistryPage() {
     () => users.find((u) => u.id === selectedId),
     [users, selectedId]
   );
+  const hasLocation =
+    selectedUser?.location &&
+    selectedUser.location.toLowerCase() !== "unknown";
+  const mapEmbedSrc = selectedUser
+    ? `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(
+        selectedUser.location
+      )}&z=11&iwloc=B&output=embed`
+    : "";
+  const mapHref = selectedUser
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+        selectedUser.location
+      )}&travelmode=driving`
+    : "";
 
   useEffect(() => {
     if (focusId === null) return;
@@ -341,13 +352,6 @@ export default function FlaggedUsersRegistryPage() {
         {/* Header */}
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-[#2a3a45]/60 pb-2 sm:mb-3 sm:pb-3">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/track-users"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-2 py-1.5 text-xs font-semibold text-[#d5e9f1] transition hover:bg-[#182433] sm:px-3 sm:py-2"
-            >
-              <ArrowLeft size={14} />
-              <span className="hidden sm:inline">Back</span>
-            </Link>
             <div>
               <p className="text-[10px] uppercase tracking-[0.12em] text-[#9cb5c2] sm:text-[11px]">
                 Government Portal
@@ -699,66 +703,53 @@ export default function FlaggedUsersRegistryPage() {
                 </div>
 
                 {/* Detail Content */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {/* Reason */}
-                  <div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="rounded-xl border border-[#2a3a45]/60 bg-[#0d141e] p-3">
                     <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6b8294]">
-                      <AlertTriangle size={14} />
-                      Flag Reason
+                      <MapPin size={14} />
+                      Location Focus
                     </h3>
-                    <p className="text-sm text-[#e6f5fa]">{selectedUser.reason}</p>
-                  </div>
-
-                  {/* Summary */}
-                  <div>
-                    <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6b8294]">
-                      <Shield size={14} />
-                      Summary
-                    </h3>
-                    <p className="text-sm text-[#a8c3d2]">{selectedUser.summary}</p>
-                  </div>
-
-                  {/* Detected Issues */}
-                  <div>
-                    <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6b8294]">
-                      <Shield size={14} />
-                      Detected Issues
-                    </h3>
-                    <ul className="space-y-2">
-                      {selectedUser.detectedIssues.map((issue, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-2 text-sm text-[#a8c3d2]"
-                        >
-                          <ChevronRight
-                            size={14}
-                            className="mt-0.5 shrink-0 text-cyan-400"
+                    <p className="mb-3 flex items-center gap-2 text-base font-semibold text-[#e6f5fa]">
+                      <MapPin size={16} className="text-cyan-300" />
+                      {selectedUser.location}
+                    </p>
+                    <div className="relative overflow-hidden rounded-lg border border-[#2a3a45]/60 bg-[#111a24]">
+                      {hasLocation ? (
+                        <>
+                          <iframe
+                            title={`Map for ${selectedUser.location}`}
+                            src={mapEmbedSrc}
+                            className="h-[280px] w-full"
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
                           />
-                          {issue}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="border-t border-[#2a3a45]/60 pt-4">
-                    <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6b8294]">
-                      <Clock size={14} />
-                      Activity
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-[#6b8294]">Last Activity</span>
-                        <span className="text-[#a8c3d2]">{selectedUser.lastActivity}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#6b8294]">Status</span>
-                        <span className={selectedUser.isRead ? "text-[#6b8294]" : "text-cyan-400"}>
-                          {selectedUser.isRead ? "Read" : "Unread"}
-                        </span>
-                      </div>
+                          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
+                            <span className="relative block h-8 w-8">
+                              <span className="absolute left-1/2 top-0 block h-6 w-6 -translate-x-1/2 rotate-[-45deg] rounded-[50%_50%_50%_0] border border-[#7f1d1d] bg-[#e53935] shadow-[0_8px_16px_rgba(0,0,0,0.42)]" />
+                              <span className="absolute left-1/2 top-[7px] block h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-[#1f2937]" />
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="grid h-[280px] place-items-center px-3 text-center text-sm text-[#6b8294]">
+                          No reliable location available.
+                        </div>
+                      )}
                     </div>
+                    {hasLocation ? (
+                      <a
+                        href={mapHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/25"
+                      >
+                        Open Directions
+                      </a>
+                    ) : null}
                   </div>
+                  <p className="mt-3 text-xs text-[#7f99a8]">
+                    Last activity: {selectedUser.lastActivity}
+                  </p>
                 </div>
               </>
             ) : (
