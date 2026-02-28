@@ -14,7 +14,7 @@ import {
 
 import { Card } from "@/components/ui/card";
 import GradientText from "@/components/GradientText";
-import { dailyStats } from "@/data/mock";
+import { getDashboardWeeklyOverview, type WeeklyOverviewPoint } from "@/services/dashboard";
 
 const chartColors = {
   scans: "#22d3ee",
@@ -77,17 +77,36 @@ export function TimelineChart() {
   const chartSectionRef = useRef<HTMLDivElement | null>(null);
   const lineStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const introStartedRef = useRef(false);
+  const [dailyStats, setDailyStats] = useState<WeeklyOverviewPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const [lineAnimActive, setLineAnimActive] = useState(false);
   const [fillProgress, setFillProgress] = useState(0);
-  const firstDay = dailyStats[0] ?? { scans: 0, clean: 0, threats: 0 };
-  const lastDay = dailyStats[dailyStats.length - 1] ?? firstDay;
 
-  const formatDelta = (next: number, prev: number) => {
-    if (!prev) return "0.0%";
-    const pct = ((next - prev) / prev) * 100;
-    return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
-  };
+  useEffect(() => {
+    let mounted = true;
+    getDashboardWeeklyOverview()
+      .then((rows) => {
+        if (!mounted) return;
+        setDailyStats(rows);
+      })
+      .catch((apiError: unknown) => {
+        if (!mounted) return;
+        setError(
+          apiError instanceof Error
+            ? apiError.message
+            : "Failed to load weekly activity.",
+        );
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!chartSectionRef.current || shouldAnimate) return;
@@ -179,17 +198,10 @@ export function TimelineChart() {
         </div>
       </div>
 
-      <div className="mb-2 hidden flex-wrap items-center gap-2 text-[11px] sm:flex">
-        <span className="rounded-md border border-[rgba(34,211,238,0.28)] bg-[rgba(34,211,238,0.12)] px-2 py-1 font-medium text-[#7de3f2]">
-          Scans {formatDelta(lastDay.scans, firstDay.scans)}
-        </span>
-        <span className="rounded-md border border-[rgba(34,197,94,0.28)] bg-[rgba(34,197,94,0.12)] px-2 py-1 font-medium text-[#6de29b]">
-          Clean {formatDelta(lastDay.clean, firstDay.clean)}
-        </span>
-        <span className="rounded-md border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.12)] px-2 py-1 font-medium text-[#f88c8c]">
-          Threats {formatDelta(lastDay.threats, firstDay.threats)}
-        </span>
-      </div>
+      {loading ? (
+        <p className="mb-2 text-xs text-mutetext">Loading weekly overview...</p>
+      ) : null}
+      {error ? <p className="mb-2 text-xs text-rose-300">{error}</p> : null}
 
       <div className="h-[230px] rounded-2xl border border-[rgba(120,156,188,0.22)] bg-[linear-gradient(180deg,rgba(8,13,20,0.92)_0%,rgba(6,11,18,0.78)_70%,rgba(7,12,20,0.9)_100%)] px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.38)]">
         <ResponsiveContainer width="100%" height="100%">
