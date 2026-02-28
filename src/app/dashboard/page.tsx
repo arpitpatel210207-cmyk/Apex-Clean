@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Globe, Send, MessageCircle } from "lucide-react";
 import { TimelineChart } from "@/components/dashboard/timeline";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Trend = "up" | "down" | "alert";
 type PlatformKey = "4chan" | "telegram" | "discord";
@@ -316,9 +316,49 @@ function Stat({
 
   const TrendIcon = trendIcon[status];
   const [countValue, setCountValue] = useState(0);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean | null>(null);
+  const [isInView, setIsInView] = useState(false);
 
   useEffect(() => {
-    if (typeof value !== "number") return;
+    const mobileMedia = window.matchMedia("(max-width: 767px)");
+    const updateViewport = () => {
+      const mobile = mobileMedia.matches;
+      setIsMobileViewport(mobile);
+      if (!mobile) setIsInView(true);
+    };
+
+    updateViewport();
+    mobileMedia.addEventListener("change", updateViewport);
+    return () => mobileMedia.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileViewport !== true || !cardRef.current || isInView) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      {
+        threshold: 0.35,
+        rootMargin: "0px 0px -8% 0px",
+      },
+    );
+
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [isMobileViewport, isInView]);
+
+  const animate = isMobileViewport === null ? false : !isMobileViewport || isInView;
+  const isHiddenBeforeReveal = isMobileViewport === true && !isInView;
+
+  useEffect(() => {
+    if (typeof value !== "number" || !animate) return;
 
     let frame = 0;
     let startAt = 0;
@@ -338,35 +378,42 @@ function Stat({
       window.clearTimeout(timer);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [value, revealDelayMs]);
+  }, [value, revealDelayMs, animate]);
 
   const shownValue =
-    typeof value === "number" ? countValue.toLocaleString("en-US") : value;
+    typeof value === "number"
+      ? (animate ? countValue : value).toLocaleString("en-US")
+      : value;
 
   return (
-    <Card className="animate-chart-reveal relative overflow-hidden rounded-2xl bg-card px-5 py-5 shadow-soft" style={{ animationDelay: `${revealDelayMs}ms` }}>
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${tones[status].accent}`} />
-      {/* <span className={`absolute inset-y-2 right-0 w-[2px] rounded-l ${tones[status].accent} opacity-80`} /> */}
-
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-mutetext">
-          {title}
-        </p>
-        <Icon className={`h-4 w-4 opacity-90 ${tones[status].text}`} />
-      </div>
-
-      <div className="text-[30px] font-bold leading-none tabular-nums text-text">
-        {shownValue}
-        {unit ? <span className="ml-1 text-[14px] tabular-nums">{unit}</span> : null}
-      </div>
-
-      <div
-        className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] ${tones[status].pill}`}
+    <div ref={cardRef} className={isHiddenBeforeReveal ? "opacity-0" : "opacity-100"}>
+      <Card
+        className={`${animate ? "animate-chart-reveal" : ""} relative overflow-hidden rounded-2xl bg-card px-5 py-5 shadow-soft`}
+        style={animate ? { animationDelay: `${revealDelayMs}ms` } : undefined}
       >
-        <TrendIcon className="h-3.5 w-3.5" />
-        <span>{trend}</span>
-      </div>
-    </Card>
+        <span className={`absolute inset-y-0 left-0 w-[3px] ${tones[status].accent}`} />
+        {/* <span className={`absolute inset-y-2 right-0 w-[2px] rounded-l ${tones[status].accent} opacity-80`} /> */}
+
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-mutetext">
+            {title}
+          </p>
+          <Icon className={`h-4 w-4 opacity-90 ${tones[status].text}`} />
+        </div>
+
+        <div className="text-[30px] font-bold leading-none tabular-nums text-text">
+          {shownValue}
+          {unit ? <span className="ml-1 text-[14px] tabular-nums">{unit}</span> : null}
+        </div>
+
+        <div
+          className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] ${tones[status].pill}`}
+        >
+          <TrendIcon className="h-3.5 w-3.5" />
+          <span>{trend}</span>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -390,45 +437,96 @@ function PlatformCard({
   icon: LucideIcon;
   onClick: () => void;
 }) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean | null>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const mobileMedia = window.matchMedia("(max-width: 767px)");
+    const updateViewport = () => {
+      const mobile = mobileMedia.matches;
+      setIsMobileViewport(mobile);
+      if (!mobile) setIsInView(true);
+    };
+
+    updateViewport();
+    mobileMedia.addEventListener("change", updateViewport);
+    return () => mobileMedia.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileViewport !== true || !cardRef.current || isInView) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          setIsInView(true);
+          observer.disconnect();
+        }
+      },
+      {
+        threshold: 0.35,
+        rootMargin: "0px 0px -8% 0px",
+      },
+    );
+
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [isMobileViewport, isInView]);
+
+  const animate = isMobileViewport === null ? false : !isMobileViewport || isInView;
+  const isHiddenBeforeReveal = isMobileViewport === true && !isInView;
+
   return (
-    <Card
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") onClick();
-      }}
-      className="group animate-chart-reveal relative min-h-[280px] min-w-0 flex-1 cursor-pointer rounded-2xl border border-border/70 bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_30px_rgba(15,23,42,0.2)]"
-      style={{ animationDelay: `${revealDelayMs}ms` }}
-    >
-      <div className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 blur-[1px] transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(120%_90%_at_50%_0%,rgba(174,222,241,0.22),transparent_62%)]" />
-      <div className="pointer-events-none absolute inset-0 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-14px_24px_rgba(2,6,23,0.2)]" />
-      <div className="relative z-10 flex h-full flex-col space-y-4">
+    <div ref={cardRef} className={isHiddenBeforeReveal ? "opacity-0" : "opacity-100"}>
+      <Card
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") onClick();
+        }}
+        className={`group ${animate ? "animate-chart-reveal" : ""} relative min-h-[280px] min-w-0 flex-1 cursor-pointer rounded-2xl border border-border/70 bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_30px_rgba(15,23,42,0.2)]`}
+        style={animate ? { animationDelay: `${revealDelayMs}ms` } : undefined}
+      >
+        <div className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 blur-[1px] transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(120%_90%_at_50%_0%,rgba(174,222,241,0.22),transparent_62%)]" />
+        <div className="pointer-events-none absolute inset-0 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-14px_24px_rgba(2,6,23,0.2)]" />
+        <div className="relative z-10 flex h-full flex-col space-y-4">
 
-      {/* HEADER */}
-      <div className="flex items-center gap-3 text-text">
-        <div className="grid h-9 w-9 place-items-center rounded-lg border border-border/60 bg-card2/70">
-          <Icon className="h-5 w-5 text-brand" />
+        {/* HEADER */}
+        <div className="flex items-center gap-3 text-text">
+          <div className="grid h-9 w-9 place-items-center rounded-lg border border-border/60 bg-card2/70">
+            <Icon className="h-5 w-5 text-brand" />
+          </div>
+          <h3 className="text-[15px] font-semibold tracking-[0.01em]">{title}</h3>
         </div>
-        <h3 className="text-[15px] font-semibold tracking-[0.01em]">{title}</h3>
-      </div>
 
-      <div className="pt-1">
-        <PillBarsChart data={series} platform={platform} />
-      </div>
+        <div className="pt-1">
+          <PillBarsChart data={series} platform={platform} animate={animate} />
+        </div>
 
 
-      {/* FOOTER STAT */}
-      <div className="mt-auto text-[14px] font-medium text-brand">
-        {activity}
-      </div>
-      </div>
+        {/* FOOTER STAT */}
+        <div className="mt-auto text-[14px] font-medium text-brand">
+          {activity}
+        </div>
+        </div>
 
-    </Card>
+      </Card>
+    </div>
   );
 }
 
-function PillBarsChart({ data, platform }: { data: number[]; platform: PlatformKey }) {
+function PillBarsChart({
+  data,
+  platform,
+  animate = true,
+}: {
+  data: number[];
+  platform: PlatformKey;
+  animate?: boolean;
+}) {
   const bars = data.slice(0, 7);
   const days = ["M", "T", "W", "T", "F", "S", "S"];
   const min = Math.min(...bars);
@@ -472,11 +570,11 @@ function PillBarsChart({ data, platform }: { data: number[]; platform: PlatformK
         {heights.map((h, i) => (
           <div
             key={`${platform}-${i}`}
-            className="animate-bar-rise w-full rounded-full"
+            className={`${animate ? "animate-bar-rise" : ""} w-full rounded-full`}
             style={{
               height: `${h}%`,
               backgroundColor: palette[platform][i],
-              animationDelay: `${i * 180}ms`,
+              animationDelay: animate ? `${i * 180}ms` : undefined,
               boxShadow: i === 0 ? "none" : `0 0 0 1px ${palette[platform][i].replace("0.62", "0.34").replace("0.38", "0.24").replace("0.76", "0.42").replace("0.52", "0.3")}`,
             }}
           />
