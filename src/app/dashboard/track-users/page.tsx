@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, ShieldAlert, Timer } from "lucide-react";
+import { CheckCircle2, MapPin, ShieldAlert, Timer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dropdown } from "@/components/ui/dropdown";
 
@@ -37,12 +37,20 @@ const FLAGGED_USERS: FlaggedUser[] = [
   },
 ];
 
+const NOTIFIED_STORAGE_KEY = "apex_notified_user_ids";
+
 export default function TrackUser() {
   const [platform, setPlatform] = useState("all");
   const [query, setQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<FlaggedUser | null>(null);
+  const [notifiedIds, setNotifiedIds] = useState<number[]>([]);
+  const [notifyingUser, setNotifyingUser] = useState<FlaggedUser | null>(null);
+  const [notifyStage, setNotifyStage] = useState<"confirm" | "success">("confirm");
   const isLocationPanelOpen = selectedUser !== null;
+  const isNotifyModalOpen = notifyingUser !== null;
+  const isOverlayOpen = isLocationPanelOpen || isNotifyModalOpen;
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const notifyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [overlayViewport, setOverlayViewport] = useState({ top: 0, height: 0 });
 
   const platformOptions = [
@@ -67,7 +75,16 @@ export default function TrackUser() {
   }, [platform, query]);
 
   useEffect(() => {
-    if (!isLocationPanelOpen || !containerRef.current) return;
+    const raw = localStorage.getItem(NOTIFIED_STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as number[];
+      if (Array.isArray(parsed)) setNotifiedIds(parsed);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!isOverlayOpen || !containerRef.current) return;
 
     let parent = containerRef.current.parentElement as HTMLElement | null;
     while (parent) {
@@ -99,15 +116,54 @@ export default function TrackUser() {
       parent.style.overscrollBehavior = previousOverscrollBehavior;
       window.removeEventListener("resize", updateViewport);
     };
-  }, [isLocationPanelOpen]);
+  }, [isOverlayOpen]);
+
+  useEffect(
+    () => () => {
+      if (notifyTimerRef.current) clearTimeout(notifyTimerRef.current);
+    },
+    []
+  );
+
+  function persistNotified(ids: number[]) {
+    setNotifiedIds(ids);
+    localStorage.setItem(NOTIFIED_STORAGE_KEY, JSON.stringify(ids));
+    window.dispatchEvent(new Event("notified-users-updated"));
+  }
+
+  function openNotifyFlow(user: FlaggedUser) {
+    if (notifiedIds.includes(user.id)) return;
+    setNotifyingUser(user);
+    setNotifyStage("confirm");
+  }
+
+  function closeNotifyFlow() {
+    if (notifyTimerRef.current) {
+      clearTimeout(notifyTimerRef.current);
+      notifyTimerRef.current = null;
+    }
+    setNotifyingUser(null);
+    setNotifyStage("confirm");
+  }
+
+  function confirmNotify() {
+    if (!notifyingUser) return;
+    if (!notifiedIds.includes(notifyingUser.id)) {
+      persistNotified([...notifiedIds, notifyingUser.id]);
+    }
+    setNotifyStage("success");
+    notifyTimerRef.current = setTimeout(() => {
+      closeNotifyFlow();
+    }, 1400);
+  }
 
   return (
     <div ref={containerRef} className="relative isolate">
       <div
         className={`space-y-6 transition-[filter,opacity] duration-200 sm:space-y-8 ${
-          isLocationPanelOpen ? "pointer-events-none blur-[3px]" : ""
+          isOverlayOpen ? "pointer-events-none blur-[3px]" : ""
         }`}
-        aria-hidden={isLocationPanelOpen}
+        aria-hidden={isOverlayOpen}
       >
         <div>
           <h1 className="page-heading">Track Flagged Users</h1>
@@ -151,7 +207,13 @@ export default function TrackUser() {
 
         <div className="space-y-5">
           {filteredUsers.map((user) => (
-            <UserCard key={user.id} user={user} onOpenLocation={() => setSelectedUser(user)} />
+            <UserCard
+              key={user.id}
+              user={user}
+              onOpenLocation={() => setSelectedUser(user)}
+              onNotifyGovernment={() => openNotifyFlow(user)}
+              isNotified={notifiedIds.includes(user.id)}
+            />
           ))}
 
           {filteredUsers.length === 0 && (
@@ -170,6 +232,15 @@ export default function TrackUser() {
         onClose={() => setSelectedUser(null)}
         overlayTop={overlayViewport.top}
         overlayHeight={overlayViewport.height}
+      />
+
+      <NotifyGovernmentModal
+        user={notifyingUser}
+        stage={notifyStage}
+        overlayTop={overlayViewport.top}
+        overlayHeight={overlayViewport.height}
+        onCancel={closeNotifyFlow}
+        onConfirm={confirmNotify}
       />
     </div>
   );
@@ -211,9 +282,13 @@ function TopStat({
 function UserCard({
   user,
   onOpenLocation,
+  onNotifyGovernment,
+  isNotified,
 }: {
   user: FlaggedUser;
   onOpenLocation: () => void;
+  onNotifyGovernment: () => void;
+  isNotified: boolean;
 }) {
   const platformTone =
     user.platform === "Telegram"
@@ -272,16 +347,88 @@ function UserCard({
 
           <button
             type="button"
+            disabled={isNotified}
             onClick={(event) => {
               event.stopPropagation();
+              onNotifyGovernment();
             }}
-            className="shrink-0 rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/25"
+            className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition ${
+              isNotified
+                ? "cursor-not-allowed border-emerald-400/35 bg-emerald-500/15 text-emerald-200/80"
+                : "border-cyan-400/45 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25"
+            }`}
           >
-            Notify Government
+            {isNotified ? "Notified" : "Notify Government"}
           </button>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function NotifyGovernmentModal({
+  user,
+  stage,
+  overlayTop,
+  overlayHeight,
+  onCancel,
+  onConfirm,
+}: {
+  user: FlaggedUser | null;
+  stage: "confirm" | "success";
+  overlayTop: number;
+  overlayHeight: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!user) return null;
+
+  return (
+    <div className="absolute inset-x-0 z-[150]" style={{ top: overlayTop, height: overlayHeight || "100%" }}>
+      <button
+        aria-label="Close notify modal"
+        onClick={onCancel}
+        className="absolute inset-0 bg-black/45"
+      />
+
+      <div className="absolute left-1/2 top-1/2 z-[1] w-[calc(100%-2rem)] max-w-[560px] -translate-x-1/2 -translate-y-1/2">
+        <div className="rounded-2xl border border-[#2a3a45]/60 bg-[rgba(12,18,25,0.98)] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.55)] sm:p-6">
+          {stage === "confirm" ? (
+            <>
+              <h3 className="text-lg font-semibold text-text">Confirm Government Notification</h3>
+              <p className="mt-2 text-sm text-mutetext">
+                You are about to officially report <span className="font-semibold text-text">@{user.username}</span> to government authorities.
+                Do you want to continue?
+              </p>
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-3 py-2 text-xs font-semibold text-mutetext transition hover:bg-[#152130]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  className="rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/25"
+                >
+                  Confirm Submission
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-4 text-center">
+              <CheckCircle2 size={56} className="text-emerald-300" />
+              <h4 className="mt-3 text-lg font-semibold text-text">Notification Submitted</h4>
+              <p className="mt-1 text-sm text-mutetext">
+                Flagged user <span className="font-semibold text-text">@{user.username}</span> has been successfully reported to government authorities.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
