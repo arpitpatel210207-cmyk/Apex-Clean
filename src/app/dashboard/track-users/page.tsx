@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, ShieldAlert, Timer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -41,6 +41,9 @@ export default function TrackUser() {
   const [platform, setPlatform] = useState("all");
   const [query, setQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<FlaggedUser | null>(null);
+  const isLocationPanelOpen = selectedUser !== null;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [overlayViewport, setOverlayViewport] = useState({ top: 0, height: 0 });
 
   const platformOptions = [
     { label: "All Platforms", value: "all" },
@@ -63,64 +66,111 @@ export default function TrackUser() {
     });
   }, [platform, query]);
 
+  useEffect(() => {
+    if (!isLocationPanelOpen || !containerRef.current) return;
+
+    let parent = containerRef.current.parentElement as HTMLElement | null;
+    while (parent) {
+      const { overflowY } = window.getComputedStyle(parent);
+      if (overflowY === "auto" || overflowY === "scroll") break;
+      parent = parent.parentElement;
+    }
+
+    if (!parent) return;
+
+    const updateViewport = () => {
+      setOverlayViewport({
+        top: parent.scrollTop,
+        height: parent.clientHeight,
+      });
+    };
+
+    updateViewport();
+
+    const previousOverflowY = parent.style.overflowY;
+    const previousOverscrollBehavior = parent.style.overscrollBehavior;
+
+    parent.style.overflowY = "hidden";
+    parent.style.overscrollBehavior = "contain";
+    window.addEventListener("resize", updateViewport);
+
+    return () => {
+      parent.style.overflowY = previousOverflowY;
+      parent.style.overscrollBehavior = previousOverscrollBehavior;
+      window.removeEventListener("resize", updateViewport);
+    };
+  }, [isLocationPanelOpen]);
+
   return (
-    <div className="relative space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="page-heading">Track Flagged Users</h1>
-        <p className="mt-2 text-mutetext">
-          Monitor flagged users with OSINT-derived location data
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <TopStat title="Flagged Users" value={filteredUsers.length} tone="red" />
-        <TopStat
-          title="Unique Platforms"
-          value={new Set(filteredUsers.map((u) => u.platform)).size}
-          tone="cyan"
-        />
-        <TopStat title="Locations Tracked" value={filteredUsers.length} tone="green" />
-      </div>
-
-      <Card
-        className="border p-4"
-        style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
+    <div ref={containerRef} className="relative isolate">
+      <div
+        className={`space-y-6 transition-[filter,opacity] duration-200 sm:space-y-8 ${
+          isLocationPanelOpen ? "pointer-events-none blur-[3px]" : ""
+        }`}
+        aria-hidden={isLocationPanelOpen}
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="input h-11 min-w-0 flex-1 sm:min-w-[220px] focus:ring-0"
-            placeholder="Search username, platform or location..."
-            style={{ borderColor: "rgba(82,82,91,0.35)" }}
-          />
-          <Dropdown
-            value={platform}
-            options={platformOptions}
-            onChange={setPlatform}
-            className="w-full sm:w-48"
-            inputClassName="h-11 border-[#2a3a45]/60 focus:border-[#355466]/55 focus:ring-0"
-            placeholder="All Platforms"
-          />
+        <div>
+          <h1 className="page-heading">Track Flagged Users</h1>
+          <p className="mt-2 text-mutetext">
+            Monitor flagged users with OSINT-derived location data
+          </p>
         </div>
-      </Card>
 
-      <div className="space-y-5">
-        {filteredUsers.map((user) => (
-          <UserCard key={user.id} user={user} onOpenLocation={() => setSelectedUser(user)} />
-        ))}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <TopStat title="Flagged Users" value={filteredUsers.length} tone="red" />
+          <TopStat
+            title="Unique Platforms"
+            value={new Set(filteredUsers.map((u) => u.platform)).size}
+            tone="cyan"
+          />
+          <TopStat title="Locations Tracked" value={filteredUsers.length} tone="green" />
+        </div>
 
-        {filteredUsers.length === 0 && (
-          <Card
-            className="border p-12 text-center text-mutetext"
-            style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
-          >
-            No flagged users found.
-          </Card>
-        )}
+        <Card
+          className="border p-4"
+          style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="input h-11 min-w-0 flex-1 sm:min-w-[220px] focus:ring-0"
+              placeholder="Search username, platform or location..."
+              style={{ borderColor: "rgba(82,82,91,0.35)" }}
+            />
+            <Dropdown
+              value={platform}
+              options={platformOptions}
+              onChange={setPlatform}
+              className="w-full sm:w-48"
+              inputClassName="h-11 border-[#2a3a45]/60 focus:border-[#355466]/55 focus:ring-0"
+              placeholder="All Platforms"
+            />
+          </div>
+        </Card>
+
+        <div className="space-y-5">
+          {filteredUsers.map((user) => (
+            <UserCard key={user.id} user={user} onOpenLocation={() => setSelectedUser(user)} />
+          ))}
+
+          {filteredUsers.length === 0 && (
+            <Card
+              className="border p-12 text-center text-mutetext"
+              style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
+            >
+              No flagged users found.
+            </Card>
+          )}
+        </div>
       </div>
 
-      <LocationPanel user={selectedUser} onClose={() => setSelectedUser(null)} />
+      <LocationPanel
+        user={selectedUser}
+        onClose={() => setSelectedUser(null)}
+        overlayTop={overlayViewport.top}
+        overlayHeight={overlayViewport.height}
+      />
     </div>
   );
 }
@@ -226,9 +276,13 @@ function UserCard({
 function LocationPanel({
   user,
   onClose,
+  overlayTop,
+  overlayHeight,
 }: {
   user: FlaggedUser | null;
   onClose: () => void;
+  overlayTop: number;
+  overlayHeight: number;
 }) {
   if (!user) return null;
 
@@ -237,14 +291,19 @@ function LocationPanel({
   const mapEmbedSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(user.location)}&z=11&iwloc=B&output=embed`;
 
   return (
-    <>
+    <div
+      className="absolute inset-x-0 z-[140]"
+      style={{ top: overlayTop, height: overlayHeight || "100%" }}
+      onWheel={(event) => event.preventDefault()}
+      onTouchMove={(event) => event.preventDefault()}
+    >
       <button
         aria-label="Close location panel"
         onClick={onClose}
-        className="absolute inset-0 z-[120] bg-black/55 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/45"
       />
 
-      <div className="absolute left-1/2 top-1/2 z-[130] w-full max-w-5xl -translate-x-1/2 -translate-y-1/2 p-3 sm:p-4">
+      <div className="absolute left-1/2 top-1/2 z-[1] w-[calc(100%-1.5rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 sm:w-[calc(100%-2rem)]">
         <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#2a3a45]/60 bg-[rgba(12,18,25,0.98)] shadow-[0_20px_55px_rgba(0,0,0,0.55)]">
           <div className="flex items-center justify-between border-b border-[#2a3a45]/60 px-4 py-3 sm:px-5">
             <h3 className="text-[18px] font-semibold text-text">User Location Panel</h3>
@@ -276,7 +335,7 @@ function LocationPanel({
               </div>
             </div>
 
-            <div className="min-h-0 overflow-y-auto p-3 sm:p-4">
+            <div className="min-h-0 overflow-hidden p-3 sm:p-4">
               <Card
                 className="border bg-[#101824]"
                 style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
@@ -312,6 +371,6 @@ function LocationPanel({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
