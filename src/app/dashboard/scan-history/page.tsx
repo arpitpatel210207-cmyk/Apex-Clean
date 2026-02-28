@@ -1,10 +1,16 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CreateModal } from "@/components/ui/create-modal";
 import { Dropdown } from "@/components/ui/dropdown";
 import { AlertTriangle, Clock3, ShieldCheck } from "lucide-react";
+import {
+  exportScanHistory,
+  getScanHistorySummary,
+  type ScanHistoryExportType,
+  type ScanHistorySummary,
+} from "@/services/scan-history";
 
 /* ---------------- TYPES ---------------- */
 
@@ -93,6 +99,10 @@ export default function ScanHistory() {
   const [openExport, setOpenExport] = useState(false);
   const [platform, setPlatform] = useState("all");
   const [query, setQuery] = useState("");
+  const [summary, setSummary] = useState<ScanHistorySummary | null>(null);
+  const [summaryError, setSummaryError] = useState("");
+  const [exportingType, setExportingType] = useState<ScanHistoryExportType | null>(null);
+  const [exportError, setExportError] = useState("");
 
   const filteredScans = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -113,6 +123,47 @@ export default function ScanHistory() {
   const totalMessages = filteredScans.reduce((s, x) => s + x.messages, 0);
   const totalClean = filteredScans.reduce((s, x) => s + x.clean, 0);
   const successRate = totalMessages ? Math.round((totalClean / totalMessages) * 100) : 0;
+
+  useEffect(() => {
+    let mounted = true;
+    getScanHistorySummary()
+      .then((data) => {
+        if (!mounted) return;
+        setSummary(data);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        setSummaryError(
+          error instanceof Error ? error.message : "Failed to load summary.",
+        );
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleExport(type: ScanHistoryExportType) {
+    setExportError("");
+    setExportingType(type);
+    try {
+      const file = await exportScanHistory(type);
+      const url = URL.createObjectURL(file.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setOpenExport(false);
+    } catch (error: unknown) {
+      setExportError(
+        error instanceof Error ? error.message : `Failed to export ${type.toUpperCase()}`,
+      );
+    } finally {
+      setExportingType(null);
+    }
+  }
   return (
     <div className="space-y-6 sm:space-y-8">
 
@@ -126,11 +177,12 @@ export default function ScanHistory() {
 
       {/* STATS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 sm:gap-5 lg:gap-6">
-        <Stat title="Total Scans" value={totalScans} />
-        <Stat title="Threats Found" value={totalThreats} danger />
-        <Stat title="Analyzed" value={totalMessages} />
-        <Stat title="Success Rate" value={`${successRate}%`} success />
+        <Stat title="Total Scans" value={summary?.totalScans ?? totalScans} />
+        <Stat title="Threats Found" value={summary?.threatsFound ?? totalThreats} danger />
+        <Stat title="Analyzed" value={summary?.analyzed ?? totalMessages} />
+        <Stat title="Success Rate" value={`${summary?.successRate ?? successRate}%`} success />
       </div>
+      {summaryError ? <p className="text-sm text-rose-300">{summaryError}</p> : null}
 
       {/* FILTER BAR */}
       <Card
@@ -191,14 +243,27 @@ export default function ScanHistory() {
       </div>
 
       {/* EXPORT MODAL */}
-     <CreateModal
+<CreateModal
   open={openExport}
   onClose={() => setOpenExport(false)}
   title="Export Scan Data"
 >
-  <ExportRow label="JSON Format" />
-  <ExportRow label="CSV Format" />
-  <ExportRow label="PDF Format" />
+  <ExportRow
+    label="JSON Format"
+    loading={exportingType === "json"}
+    onExport={() => handleExport("json")}
+  />
+  <ExportRow
+    label="CSV Format"
+    loading={exportingType === "csv"}
+    onExport={() => handleExport("csv")}
+  />
+  <ExportRow
+    label="PDF Format"
+    loading={exportingType === "pdf"}
+    onExport={() => handleExport("pdf")}
+  />
+  {exportError ? <p className="text-xs text-rose-300">{exportError}</p> : null}
 </CreateModal>
 
 
@@ -312,12 +377,12 @@ function ScanCard({
           )}
 
           <div className="ml-auto">
-            <button
+            {/* <button
               onClick={onExport}
               className="rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-4 py-1.5 text-[11px] font-semibold text-text transition hover:bg-[#172434]"
             >
               Export
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -364,15 +429,27 @@ function GlassStat({
 
 /* ---------------- EXPORT ROW ---------------- */
 
-function ExportRow({ label }: { label: string }) {
+function ExportRow({
+  label,
+  onExport,
+  loading = false,
+}: {
+  label: string;
+  onExport: () => void;
+  loading?: boolean;
+}) {
   return (
     <div className="modal-surface mb-3 flex items-center justify-between rounded-xl px-4 py-3">
       <span className="text-[14px] font-medium">
         {label}
       </span>
 
-      <button className="modal-primary rounded-lg px-4 py-1.5 font-semibold transition hover:brightness-110">
-        Export
+      <button
+        onClick={onExport}
+        disabled={loading}
+        className="modal-primary rounded-lg px-4 py-1.5 font-semibold transition hover:brightness-110 disabled:opacity-70"
+      >
+        {loading ? "Exporting..." : "Export"}
       </button>
     </div>
   );
