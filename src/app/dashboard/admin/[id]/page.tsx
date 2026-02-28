@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAdminById, type AdminRecord } from "@/services/admin";
 
 export default function AdminDetailsPage() {
@@ -42,14 +43,7 @@ export default function AdminDetailsPage() {
   }, [params.id]);
 
   if (loading) {
-    return (
-      <Card className="max-w-2xl border border-[#2a3a45]/55 bg-card">
-        <CardContent className="space-y-4 p-6">
-          <h1 className="page-heading">Admin Details</h1>
-          <p className="text-sm text-mutetext">Loading admin details...</p>
-        </CardContent>
-      </Card>
-    );
+    return <AdminDetailsSkeleton />;
   }
 
   if (!admin || error) {
@@ -96,6 +90,39 @@ export default function AdminDetailsPage() {
           />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AdminDetailsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="mt-2 h-4 w-64" />
+        </div>
+        <Skeleton className="h-9 w-20 rounded-xl" />
+      </div>
+
+      <Card className="max-w-2xl border border-[#2a3a45]/55 bg-card">
+        <CardContent className="grid gap-4 p-6 sm:grid-cols-2">
+          <DetailItemSkeleton />
+          <DetailItemSkeleton />
+          <DetailItemSkeleton />
+          <DetailItemSkeleton />
+          <DetailItemSkeleton />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function DetailItemSkeleton() {
+  return (
+    <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.04)] p-3">
+      <Skeleton className="h-3 w-20" />
+      <Skeleton className="mt-2 h-4 w-28" />
     </div>
   );
 }

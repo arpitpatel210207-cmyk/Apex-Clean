@@ -1,7 +1,8 @@
 "use client";
 
-import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ComponentType, type ReactNode, useCallback, useEffect, useRef, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -164,6 +165,8 @@ const adminColumns: AdminColumn[] = [
 ];
 
 export default function AdminsPage() {
+  const pathname = usePathname();
+  const requestIdRef = useRef(0);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -186,27 +189,71 @@ export default function AdminsPage() {
     return { total, active, superAdmins };
   }, [admins]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const requestAdmins = useCallback((showLoader: boolean) => {
+    const requestId = ++requestIdRef.current;
+    if (showLoader) setLoading(true);
+
     getAdmins()
       .then((items) => {
-        if (!isMounted) return;
+        if (requestId !== requestIdRef.current) return;
         setAdmins(items);
+        setPageError("");
       })
       .catch((error: unknown) => {
-        if (!isMounted) return;
+        if (requestId !== requestIdRef.current) return;
         setPageError(
           error instanceof Error ? error.message : "Failed to load admins.",
         );
       })
       .finally(() => {
-        if (!isMounted) return;
-        setLoading(false);
+        if (requestId !== requestIdRef.current) return;
+        if (showLoader) setLoading(false);
       });
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    if (pathname !== "/dashboard/admin") return;
+
+    const kickoff = window.setTimeout(() => {
+      requestAdmins(true);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(kickoff);
+      requestIdRef.current += 1;
+    };
+  }, [pathname, requestAdmins]);
+
+  useEffect(() => {
+    if (pathname !== "/dashboard/admin") return;
+
+    const onFocus = () => {
+      requestAdmins(false);
+    };
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      requestAdmins(false);
+    };
+
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [pathname, requestAdmins]);
+
+  useEffect(() => {
+    if (pathname !== "/dashboard/admin") return;
+    if (!loading || admins.length > 0) return;
+
+    const retry = window.setTimeout(() => {
+      requestAdmins(true);
+    }, 1800);
+
+    return () => window.clearTimeout(retry);
+  }, [pathname, loading, admins.length, requestAdmins]);
 
   async function toggleStatus(id: string, nextStatus: Admin["status"]) {
     const updated = await setAdminStatus(id, nextStatus);
