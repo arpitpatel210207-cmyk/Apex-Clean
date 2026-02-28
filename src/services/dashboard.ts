@@ -10,6 +10,12 @@ export type PlatformMonitoring = {
 };
 
 export type DashboardMonitoringResponse = Record<PlatformKey, PlatformMonitoring>;
+export type WeeklyOverviewPoint = {
+  date: string;
+  scans: number;
+  clean: number;
+  threats: number;
+};
 
 const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
 
@@ -18,6 +24,7 @@ const PLATFORM_ROUTE: Record<PlatformKey, string> = {
   telegram: "/dashboard/platform/telgram",
   discord: "/dashboard/platform/discord",
 };
+const WEEKLY_OVERVIEW_ROUTE = "/dashboard/weekly-overview";
 
 const PLATFORM_ROUTE_FALLBACK: Partial<Record<PlatformKey, string[]>> = {
   telegram: ["/dashboard/platform/telegram"],
@@ -142,6 +149,70 @@ function normalizePlatform(
     weeklyDays: weeklyActivity.days,
     weeklyRisk,
   };
+}
+
+function normalizeWeeklyOverview(payload: unknown): WeeklyOverviewPoint[] {
+  const root = asObject(payload);
+  const data = root.data ?? root;
+
+  if (Array.isArray(data)) {
+    return data.map((row) => {
+      const obj = asObject(row);
+      const scans = asNumber(
+        obj.scans ?? obj.scanCount ?? obj.totalScans ?? obj.value,
+        0,
+      );
+      const threats = asNumber(
+        obj.threats ?? obj.threatCount ?? obj.threat_count ?? obj.flagged ?? obj.value,
+        0,
+      );
+      return {
+        date: String(obj.date ?? obj.day ?? ""),
+        scans,
+        clean: asNumber(
+          obj.clean ?? obj.cleanCount ?? obj.clean_count ?? Math.max(scans - threats, 0),
+          Math.max(scans - threats, 0),
+        ),
+        threats,
+      };
+    });
+  }
+
+  const obj = asObject(data);
+  const weekly = obj.weeklyActivity ?? obj.weekly_activity;
+  if (Array.isArray(weekly)) {
+    return weekly.map((row) => {
+      const item = asObject(row);
+      const scans = asNumber(
+        item.scans ?? item.scanCount ?? item.totalScans ?? item.value,
+        0,
+      );
+      const threats = asNumber(
+        item.threats ??
+          item.threatCount ??
+          item.threat_count ??
+          item.flagged ??
+          item.value,
+        0,
+      );
+      return {
+        date: String(item.day ?? item.date ?? ""),
+        scans,
+        clean: asNumber(
+          item.clean ?? item.cleanCount ?? item.clean_count ?? Math.max(scans - threats, 0),
+          Math.max(scans - threats, 0),
+        ),
+        threats,
+      };
+    });
+  }
+
+  return [];
+}
+
+export async function getDashboardWeeklyOverview(): Promise<WeeklyOverviewPoint[]> {
+  const payload = await request<unknown>(WEEKLY_OVERVIEW_ROUTE);
+  return normalizeWeeklyOverview(payload);
 }
 
 export async function getDashboardMonitoring(): Promise<DashboardMonitoringResponse> {
