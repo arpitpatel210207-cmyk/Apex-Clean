@@ -1,6 +1,6 @@
 ﻿﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   Star,
@@ -15,6 +15,7 @@ import {
 type RiskLevel = "critical" | "high" | "medium";
 type PlatformSource = "telegram" | "discord" | "4chan";
 type Folder = "inbox" | "starred" | "archive" | "spam" | "trash";
+type LatLng = [number, number];
 
 type RegistryUser = {
   id: number;
@@ -143,7 +144,16 @@ const INITIAL_USERS: RegistryUser[] = [
   },
 ];
 
+const LOCATION_COORDS: Record<string, LatLng> = {
+  "Berlin, Germany": [52.52, 13.405],
+  "New York, USA": [40.7128, -74.006],
+  "Mumbai, India": [19.076, 72.8777],
+  "Kochi, India": [9.9312, 76.2673],
+  "Istanbul, Turkey": [41.0082, 28.9784],
+};
+
 const NOTIFIED_STORAGE_KEY = "apex_notified_user_ids";
+const REGISTRY_USERS_STORAGE_KEY = "apex_registry_users_v1";
 
 // Gmail-like folder configuration
 const FOLDERS: Array<{ key: Folder; label: string; icon: React.ReactNode; color: string }> = [
@@ -164,6 +174,11 @@ export default function FlaggedUsersRegistryPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [notifiedIds, setNotifiedIds] = useState<number[]>([]);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[] | null>(null);
+  const [hasHydratedUsers, setHasHydratedUsers] = useState(false);
+  const [userCoords, setUserCoords] = useState<LatLng | null>(null);
+  const [destinationCoords, setDestinationCoords] = useState<LatLng | null>(null);
+  const geocodeCacheRef = useRef<Record<string, LatLng | null>>({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -171,6 +186,26 @@ export default function FlaggedUsersRegistryPage() {
     const parsed = raw ? Number(raw) : NaN;
     setFocusId(Number.isFinite(parsed) ? parsed : null);
   }, []);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(REGISTRY_USERS_STORAGE_KEY);
+    if (!raw) {
+      setHasHydratedUsers(true);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as RegistryUser[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setUsers(parsed);
+      }
+    } catch {}
+    setHasHydratedUsers(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedUsers) return;
+    localStorage.setItem(REGISTRY_USERS_STORAGE_KEY, JSON.stringify(users));
+  }, [hasHydratedUsers, users]);
 
   const folderCounts = useMemo(
     () => ({
@@ -205,15 +240,23 @@ export default function FlaggedUsersRegistryPage() {
   const hasLocation =
     selectedUser?.location &&
     selectedUser.location.toLowerCase() !== "unknown";
-  const mapEmbedSrc = selectedUser
-    ? `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(
-        selectedUser.location
-      )}&z=11&iwloc=B&output=embed`
-    : "";
   const mapHref = selectedUser
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-        selectedUser.location
-      )}&travelmode=driving`
+    ? userCoords
+      ? `https://www.google.com/maps/dir/?api=1&origin=${userCoords[0]},${userCoords[1]}&destination=${encodeURIComponent(
+          selectedUser.location
+        )}&travelmode=driving`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+          selectedUser.location
+        )}&travelmode=driving`
+    : "";
+  const directionsEmbedSrc = selectedUser
+    ? userCoords
+      ? `https://www.google.com/maps?output=embed&saddr=${userCoords[0]},${userCoords[1]}&daddr=${encodeURIComponent(
+          selectedUser.location
+        )}`
+      : `https://www.google.com/maps?output=embed&q=${encodeURIComponent(
+          selectedUser.location
+        )}`
     : "";
 
   useEffect(() => {
@@ -247,6 +290,76 @@ export default function FlaggedUsersRegistryPage() {
       window.removeEventListener("notified-users-updated", syncNotified as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoords([position.coords.latitude, position.coords.longitude]);
+      },
+      () => {
+        setUserCoords(null);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    const locationName = selectedUser?.location;
+    if (!locationName || locationName.toLowerCase() === "unknown") {
+      setDestinationCoords(null);
+      return;
+    }
+
+    const known = LOCATION_COORDS[locationName];
+    if (known) {
+      setDestinationCoords(known);
+      return;
+    }
+
+    const cached = geocodeCacheRef.current[locationName];
+    if (cached !== undefined) {
+      setDestinationCoords(cached);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
+        locationName
+      )}`,
+      { signal: controller.signal }
+    )
+      .then((res) => res.json())
+      .then((rows: Array<{ lat: string; lon: string }>) => {
+        if (!Array.isArray(rows) || rows.length === 0) {
+          geocodeCacheRef.current[locationName] = null;
+          setDestinationCoords(null);
+          return;
+        }
+        const lat = Number(rows[0].lat);
+        const lon = Number(rows[0].lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          geocodeCacheRef.current[locationName] = null;
+          setDestinationCoords(null);
+          return;
+        }
+        const resolved: LatLng = [lat, lon];
+        geocodeCacheRef.current[locationName] = resolved;
+        setDestinationCoords(resolved);
+      })
+      .catch(() => {
+        geocodeCacheRef.current[locationName] = null;
+        setDestinationCoords(null);
+      });
+
+    return () => controller.abort();
+  }, [selectedUser?.location]);
 
   useEffect(() => {
     if (visibleUsers.length === 0) {
@@ -308,7 +421,46 @@ export default function FlaggedUsersRegistryPage() {
   }
 
   function deleteMessage(id: number) {
+    const target = users.find((u) => u.id === id);
+    if (!target) return;
+
+    if (target.folder === "trash") {
+      setPendingDeleteIds([id]);
+      return;
+    }
+
     moveToFolder(id, "trash");
+  }
+
+  function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+
+    if (activeFolder === "trash") {
+      setPendingDeleteIds(ids);
+      return;
+    }
+
+    bulkMoveToFolder("trash");
+  }
+
+  function confirmPermanentDelete() {
+    if (!pendingDeleteIds || pendingDeleteIds.length === 0) {
+      setPendingDeleteIds(null);
+      return;
+    }
+
+    setUsers((prev) => prev.filter((user) => !pendingDeleteIds.includes(user.id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of pendingDeleteIds) next.delete(id);
+      return next;
+    });
+    if (pendingDeleteIds.includes(selectedId)) {
+      setSelectedId(0);
+    }
+    setSelectAll(false);
+    setPendingDeleteIds(null);
   }
 
   function markAsRead(id: number) {
@@ -512,7 +664,7 @@ export default function FlaggedUsersRegistryPage() {
               
               <button
                 type="button"
-                onClick={() => bulkMoveToFolder("trash")}
+                onClick={handleBulkDelete}
                 disabled={selectedIds.size === 0}
                 className="rounded p-1.5 text-[#ef4444] transition hover:bg-[#3b1c1c] disabled:opacity-30"
                 title="Delete"
@@ -715,21 +867,7 @@ export default function FlaggedUsersRegistryPage() {
                     </p>
                     <div className="relative overflow-hidden rounded-lg border border-[#2a3a45]/60 bg-[#111a24]">
                       {hasLocation ? (
-                        <>
-                          <iframe
-                            title={`Map for ${selectedUser.location}`}
-                            src={mapEmbedSrc}
-                            className="h-[280px] w-full"
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                          />
-                          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
-                            <span className="relative block h-8 w-8">
-                              <span className="absolute left-1/2 top-0 block h-6 w-6 -translate-x-1/2 rotate-[-45deg] rounded-[50%_50%_50%_0] border border-[#7f1d1d] bg-[#e53935] shadow-[0_8px_16px_rgba(0,0,0,0.42)]" />
-                              <span className="absolute left-1/2 top-[7px] block h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-[#1f2937]" />
-                            </span>
-                          </div>
-                        </>
+                        <GoogleDirectionsMap src={directionsEmbedSrc} locationLabel={selectedUser.location} />
                       ) : (
                         <div className="grid h-[280px] place-items-center px-3 text-center text-sm text-[#6b8294]">
                           No reliable location available.
@@ -760,7 +898,54 @@ export default function FlaggedUsersRegistryPage() {
           </aside>
         </div>
       </div>
+
+      {pendingDeleteIds && pendingDeleteIds.length > 0 ? (
+        <div className="fixed inset-0 z-[400] grid place-items-center bg-black/55 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[#2a3a45]/60 bg-[#111a24] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.55)]">
+            <h3 className="text-lg font-semibold text-text">Delete Permanently?</h3>
+            <p className="mt-2 text-sm text-mutetext">
+              {pendingDeleteIds.length === 1
+                ? "This message will be permanently deleted and cannot be recovered."
+                : `${pendingDeleteIds.length} messages will be permanently deleted and cannot be recovered.`}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteIds(null)}
+                className="rounded-lg border border-[#2a3a45]/60 bg-[#0f1a25] px-3 py-2 text-xs font-semibold text-[#d5e9f1] transition hover:bg-[#172434]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmPermanentDelete}
+                className="rounded-lg border border-[#4a2c2c] bg-[#351b1b] px-3 py-2 text-xs font-semibold text-[#f3a5a1] transition hover:bg-[#462121]"
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function GoogleDirectionsMap({
+  src,
+  locationLabel,
+}: {
+  src: string;
+  locationLabel: string;
+}) {
+  return (
+    <iframe
+      title={`Directions to ${locationLabel}`}
+      src={src}
+      className="h-[280px] w-full"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+    />
   );
 }
 
