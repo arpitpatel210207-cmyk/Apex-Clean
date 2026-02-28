@@ -125,7 +125,7 @@ export function SidebarContent({
               <div className="mt-1 space-y-1 pl-2">
                 <NavItem href="/dashboard/live-scan/telegram" icon={<Send size={18} />} label="Telegram" onClick={handleNavClick} compact={compact} expanded={expanded} />
                 <NavItem href="/dashboard/live-scan/discord" icon={<MessageCircle size={18} />} label="Discord" onClick={handleNavClick} compact={compact} expanded={expanded} />
-                <NavItem href="/dashboard/live-scan/4can" icon={<Globe size={18} />} label="4can" onClick={handleNavClick} compact={compact} expanded={expanded} />
+                <NavItem href="/dashboard/live-scan/4chan" icon={<Globe size={18} />} label="4chan" onClick={handleNavClick} compact={compact} expanded={expanded} />
               </div>
             </div>
           ) : null}

@@ -17,7 +17,7 @@ import { TimelineChart } from "@/components/dashboard/timeline";
 import { useEffect, useState } from "react";
 
 type Trend = "up" | "down" | "alert";
-type PlatformKey = "4can" | "telegram" | "discord";
+type PlatformKey = "4chan" | "telegram" | "discord";
 
 const statCards: {
   title: string;
@@ -85,7 +85,7 @@ function getTrend(
 export default function DashboardPage() {
   const [activePlatform, setActivePlatform] = useState<PlatformKey | null>(null);
   const platformSeries: Record<PlatformKey, number[]> = {
-    "4can": [48, 62, 77, 58, 84, 69, 92],
+    "4chan": [48, 62, 77, 58, 84, 69, 92],
     telegram: [42, 55, 67, 73, 61, 78, 88],
     discord: [35, 47, 64, 59, 71, 76, 86],
   };
@@ -102,8 +102,8 @@ export default function DashboardPage() {
       rows: { label: string; value: string }[];
     }
   > = {
-    "4can": {
-      title: "4can Monitoring",
+    "4chan": {
+      title: "4chan Monitoring",
       graph: {
         days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         volume: [48, 62, 77, 58, 84, 69, 92],
@@ -180,13 +180,13 @@ export default function DashboardPage() {
     <div className="grid grid-cols-1 gap-4 py-2 sm:py-4 md:grid-cols-2 xl:grid-cols-3">
 
   <PlatformCard
-    title="4can Monitoring"
+    title="4chan Monitoring"
     activity="2,340 scans today"
     icon={Globe}
-    series={platformSeries["4can"]}
-    platform="4can"
+    series={platformSeries["4chan"]}
+    platform="4chan"
     revealDelayMs={120}
-    onClick={() => setActivePlatform("4can")}
+    onClick={() => setActivePlatform("4chan")}
   />
 
   <PlatformCard
@@ -437,7 +437,7 @@ function PillBarsChart({ data, platform }: { data: number[]; platform: PlatformK
   const heights = bars.map((v) => 30 + ((v - min) / range) * 70);
 
   const palette: Record<PlatformKey, string[]> = {
-    "4can": [
+    "4chan": [
       "rgba(255,69,0,0.26)",
       "rgba(255,69,0,0.34)",
       "rgba(255,69,0,0.42)",

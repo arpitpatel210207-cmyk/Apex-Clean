@@ -18,7 +18,7 @@ const points = [
   {
     icon: Globe2,
     title: "Cross-Platform Monitoring",
-    text: "Track activity across Telegram, 4can, Discord, and more in one place.",
+    text: "Track activity across Telegram, 4chan, Discord, and more in one place.",
   },
   {
     icon: ShieldCheck,

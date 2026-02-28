@@ -24,7 +24,7 @@ export default function FourCanLiveScanPage() {
               <Globe className="h-5 w-5 text-brand" />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">4can Monitoring</h2>
+              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">4chan Monitoring</h2>
               <p className="text-sm text-mutetext">Monitor boards and threads for suspicious activity in real time</p>
             </div>
           </div>
@@ -107,7 +107,7 @@ export default function FourCanLiveScanPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand" />
-            <h3 className="font-semibold text-text">Scan Results - 4can</h3>
+            <h3 className="font-semibold text-text">Scan Results - 4chan</h3>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-xs text-brand">
             <Clock3 size={12} />

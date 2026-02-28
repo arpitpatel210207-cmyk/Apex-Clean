@@ -37,7 +37,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
       "/dashboard/about-us": "About Us",
       "/dashboard/live-scan/telegram": "Telegram Tracking",
       "/dashboard/live-scan/discord": "Discord Surveillance",
-      "/dashboard/live-scan/4can": "4can Monitoring",
+      "/dashboard/live-scan/4chan": "4chan Monitoring",
     };
 
     if (map[pathname]) return map[pathname];

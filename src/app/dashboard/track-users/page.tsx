@@ -31,7 +31,7 @@ const FLAGGED_USERS: FlaggedUser[] = [
   {
     id: 3,
     username: "darkmarket_admin",
-    platform: "4can",
+    platform: "4chan",
     location: "Unknown",
     flaggedAt: "2025-02-03 21:08",
   },
@@ -46,7 +46,7 @@ export default function TrackUser() {
     { label: "All Platforms", value: "all" },
     { label: "Telegram", value: "telegram" },
     { label: "Discord", value: "discord" },
-    { label: "4can", value: "4can" },
+    { label: "4chan", value: "4chan" },
   ];
 
   const filteredUsers = useMemo(() => {
