@@ -62,7 +62,11 @@ export default function Map() {
 
         L.geoJSON(geo, {
           style: (feature) => {
-            const name = normalize(feature?.properties?.NAME_1 ?? "");
+            const name = normalize(
+              feature && "properties" in feature
+                ? ((feature.properties as { NAME_1?: string } | null | undefined)?.NAME_1 ?? "")
+                : "",
+            );
             const value = getStateValue(name);
 
             return {
@@ -99,7 +103,8 @@ export default function Map() {
                 icon: L.divIcon({
                   className:
                     "text-[10px] font-semibold text-[#121212] pointer-events-none",
-                  html: feature.properties.NAME_1,
+                  html:
+                    (feature.properties as { NAME_1?: string } | undefined)?.NAME_1 ?? "",
                 }),
               }).addTo(map);
             } catch {}
