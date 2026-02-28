@@ -252,20 +252,32 @@ function UserCard({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold ${platformTone}`}>
-            {user.platform}
-          </span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold ${platformTone}`}>
+              {user.platform}
+            </span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenLocation();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#2a3a45]/60 bg-[#111a24] px-3 py-1 text-[11px] text-text transition hover:bg-[#152130]"
+            >
+              <MapPin size={13} className="text-mutetext" />
+              {user.location}
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onOpenLocation();
             }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#2a3a45]/60 bg-[#111a24] px-3 py-1 text-[11px] text-text transition hover:bg-[#152130]"
+            className="shrink-0 rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/25"
           >
-            <MapPin size={13} className="text-mutetext" />
-            {user.location}
+            Notify Government
           </button>
         </div>
       </CardContent>
@@ -287,7 +299,6 @@ function LocationPanel({
   if (!user) return null;
 
   const hasLocation = user.location.toLowerCase() !== "unknown";
-  const mapHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(user.location)}&travelmode=driving`;
   const mapEmbedSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(user.location)}&z=11&iwloc=B&output=embed`;
 
   return (
@@ -303,7 +314,7 @@ function LocationPanel({
         className="absolute inset-0 bg-black/45"
       />
 
-      <div className="absolute left-1/2 top-1/2 z-[1] w-[calc(100%-1.5rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 sm:w-[calc(100%-2rem)]">
+      <div className="absolute left-1/2 top-[46%] z-[1] w-[calc(100%-1.5rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 sm:w-[calc(100%-2rem)]">
         <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#2a3a45]/60 bg-[rgba(12,18,25,0.98)] shadow-[0_20px_55px_rgba(0,0,0,0.55)]">
           <div className="flex items-center justify-between border-b border-[#2a3a45]/60 px-4 py-3 sm:px-5">
             <h3 className="text-[18px] font-semibold text-text">User Location Panel</h3>
@@ -355,18 +366,6 @@ function LocationPanel({
                 </CardContent>
               </Card>
 
-              {hasLocation ? (
-                <div className="mt-4">
-                  <a
-                    href={mapHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-4 py-2 text-sm font-medium text-cyan-300 transition hover:bg-[#172434]"
-                  >
-                    Open Directions
-                  </a>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
