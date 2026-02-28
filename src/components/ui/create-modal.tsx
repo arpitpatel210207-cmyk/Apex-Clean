@@ -23,7 +23,7 @@ export  function CreateModal({
 
       {/* BACKDROP */}
       <div
-        className="animate-modal-fade absolute inset-0 bg-[#121212]/70 backdrop-blur-sm"
+        className="animate-modal-fade absolute inset-0 bg-[#121212]/70"
         onClick={onClose}
       />
 

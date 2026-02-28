@@ -33,7 +33,7 @@ export function NavItem({
       } ${
         active
           ? "bg-[rgba(28,32,34,0.95)] text-[#e6f5fa] font-semibold border-[rgba(230,245,250,0.28)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_16px_rgba(0,0,0,0.35)]"
-          : "text-[#e6f5fa] hover:bg-card2 hover:text-[#e6f5fa]"
+          : "text-[#e6f5fa] hover:bg-card2 hover:text-[#e6f5fa] hover:border-[rgba(255,255,255,0.05)]"
       }`}
     >
       <span

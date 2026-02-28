@@ -168,7 +168,7 @@ body {
 /* ===== HOVER GLOW ===== */
 
 .surface:hover {
-  transform: translateY(-2px);
+  /* Removed transform to prevent layout shifts - using box-shadow only for elevation effect */
   border-color: rgba(111, 196, 231, .28);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, .1),
@@ -203,6 +203,17 @@ body {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ===== SCROLLBAR RESERVATION - Prevents layout shift when modals open ===== */
+/* Always reserve scrollbar space to prevent content jumping when modals appear */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* For browsers that support it - always show scrollbar track to reserve space */
+body {
+  overflow-y: scroll;
 }
 
 .modal-scroll {

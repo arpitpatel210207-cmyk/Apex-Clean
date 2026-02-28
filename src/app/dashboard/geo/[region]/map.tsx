@@ -62,7 +62,7 @@ export default function Map() {
 
         L.geoJSON(geo, {
           style: (feature) => {
-            const name = normalize(feature.properties.NAME_1 || "");
+            const name = normalize(feature?.properties?.NAME_1 ?? "");
             const value = getStateValue(name);
 
             return {

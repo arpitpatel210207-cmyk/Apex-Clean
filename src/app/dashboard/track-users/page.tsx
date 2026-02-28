@@ -64,7 +64,7 @@ export default function TrackUser() {
   }, [platform, query]);
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="relative space-y-6 sm:space-y-8">
       <div>
         <h1 className="page-heading">Track Flagged Users</h1>
         <p className="mt-2 text-mutetext">
@@ -241,10 +241,10 @@ function LocationPanel({
       <button
         aria-label="Close location panel"
         onClick={onClose}
-        className="fixed inset-0 z-[120] bg-black/55 backdrop-blur-[2px]"
+        className="absolute inset-0 z-[120] bg-black/55 backdrop-blur-[2px]"
       />
 
-      <div className="fixed inset-y-0 right-0 z-[130] w-full max-w-5xl p-3 sm:p-4">
+      <div className="absolute left-1/2 top-1/2 z-[130] w-full max-w-5xl -translate-x-1/2 -translate-y-1/2 p-3 sm:p-4">
         <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-[#2a3a45]/60 bg-[rgba(12,18,25,0.98)] shadow-[0_20px_55px_rgba(0,0,0,0.55)]">
           <div className="flex items-center justify-between border-b border-[#2a3a45]/60 px-4 py-3 sm:px-5">
             <h3 className="text-[18px] font-semibold text-text">User Location Panel</h3>
