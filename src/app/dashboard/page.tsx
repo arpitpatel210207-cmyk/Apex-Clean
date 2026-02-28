@@ -17,7 +17,7 @@ import { TimelineChart } from "@/components/dashboard/timeline";
 import { useEffect, useState } from "react";
 
 type Trend = "up" | "down" | "alert";
-type PlatformKey = "reddit" | "telegram" | "discord";
+type PlatformKey = "4can" | "telegram" | "discord";
 
 const statCards: {
   title: string;
@@ -85,7 +85,7 @@ function getTrend(
 export default function DashboardPage() {
   const [activePlatform, setActivePlatform] = useState<PlatformKey | null>(null);
   const platformSeries: Record<PlatformKey, number[]> = {
-    reddit: [48, 62, 77, 58, 84, 69, 92],
+    "4can": [48, 62, 77, 58, 84, 69, 92],
     telegram: [42, 55, 67, 73, 61, 78, 88],
     discord: [35, 47, 64, 59, 71, 76, 86],
   };
@@ -102,15 +102,15 @@ export default function DashboardPage() {
       rows: { label: string; value: string }[];
     }
   > = {
-    reddit: {
-      title: "Reddit Monitoring",
+    "4can": {
+      title: "4can Monitoring",
       graph: {
         days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         volume: [48, 62, 77, 58, 84, 69, 92],
         risk: [22, 26, 31, 24, 35, 29, 38],
       },
       rows: [
-        { label: "Active Subreddits", value: "12 tracked" },
+        { label: "Active Boards", value: "12 tracked" },
         { label: "Scans Today", value: "2,340" },
         { label: "Flagged Threads", value: "41" },
       ],
@@ -180,13 +180,13 @@ export default function DashboardPage() {
     <div className="grid grid-cols-1 gap-4 py-2 sm:py-4 md:grid-cols-2 xl:grid-cols-3">
 
   <PlatformCard
-    title="Reddit Monitoring"
+    title="4can Monitoring"
     activity="2,340 scans today"
     icon={Globe}
-    series={platformSeries.reddit}
-    platform="reddit"
+    series={platformSeries["4can"]}
+    platform="4can"
     revealDelayMs={120}
-    onClick={() => setActivePlatform("reddit")}
+    onClick={() => setActivePlatform("4can")}
   />
 
   <PlatformCard
@@ -437,7 +437,7 @@ function PillBarsChart({ data, platform }: { data: number[]; platform: PlatformK
   const heights = bars.map((v) => 30 + ((v - min) / range) * 70);
 
   const palette: Record<PlatformKey, string[]> = {
-    reddit: [
+    "4can": [
       "rgba(255,69,0,0.26)",
       "rgba(255,69,0,0.34)",
       "rgba(255,69,0,0.42)",

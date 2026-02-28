@@ -65,7 +65,7 @@ const SCANS: Scan[] = [
   },
   {
     id: 3,
-    platform: "Reddit",
+    platform: "4can",
     type: "File Scan",
     target: "group_chat_export.txt",
     messages: 89,
@@ -85,7 +85,7 @@ const platformOptions = [
   { label: "All Platforms", value: "all" },
   { label: "Discord", value: "discord" },
   { label: "Telegram", value: "telegram" },
-  { label: "Reddit", value: "reddit" },
+  { label: "4can", value: "4can" },
 ];
 /* ======================================================= */
 

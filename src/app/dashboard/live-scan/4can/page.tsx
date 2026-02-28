@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
-  Send,
+  Globe,
   Users,
+  Search,
   AlertTriangle,
   ShieldCheck,
-  Search,
   Clock3,
 } from "lucide-react";
 
-export default function TelegramLiveScanPage() {
+export default function FourCanLiveScanPage() {
   const [target, setTarget] = useState("");
   const [apexModel, setApexModel] = useState<"small" | "large">("small");
 
@@ -21,13 +21,11 @@ export default function TelegramLiveScanPage() {
         <div className="relative flex flex-wrap items-start justify-between gap-3 sm:gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#2f4250]/55 bg-[rgba(111,196,231,0.12)]">
-              <Send className="h-5 w-5 text-brand" />
+              <Globe className="h-5 w-5 text-brand" />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">Telegram Tracking</h2>
-              <p className="text-sm text-mutetext">
-                Monitor channels and groups for suspicious conversations in real time
-              </p>
+              <h2 className="truncate text-2xl font-semibold text-text sm:text-3xl">4can Monitoring</h2>
+              <p className="text-sm text-mutetext">Monitor boards and threads for suspicious activity in real time</p>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
@@ -41,13 +39,11 @@ export default function TelegramLiveScanPage() {
         <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
           <h3 className="flex items-center gap-2 text-base font-semibold text-text">
             <Search className="h-4.5 w-4.5 text-brand" />
-            Group Chat Monitoring
+            Board Monitoring
           </h3>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
-              Apex Model
-            </label>
+            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">Apex Model</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -75,12 +71,10 @@ export default function TelegramLiveScanPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
-              Channel or Group
-            </label>
+            <label className="pb-2 text-xs font-medium uppercase tracking-[0.08em] text-mutetext">Board or Thread</label>
             <input
               className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
-              placeholder="Enter group/channel name or invite link"
+              placeholder="Enter board (e.g. /pol/) or thread URL"
               value={target}
               onChange={(event) => setTarget(event.target.value)}
             />
@@ -98,9 +92,9 @@ export default function TelegramLiveScanPage() {
           </h3>
 
           <div className="space-y-2">
-            <WatchRow name="@market_signals_hub" tags="2 keywords" />
-            <WatchRow name="CityDeals_Group" tags="5 keywords" />
-            <WatchRow name="@late_night_orders" tags="3 keywords" />
+            <WatchRow name="/pol/" tags="4 keywords" />
+            <WatchRow name="/biz/" tags="3 keywords" />
+            <WatchRow name="Thread #49392021" tags="2 keywords" />
           </div>
 
           <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.06)] px-3 py-2 text-xs text-mutetext">
@@ -113,7 +107,7 @@ export default function TelegramLiveScanPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand" />
-            <h3 className="font-semibold text-text">Scan Results - Telegram</h3>
+            <h3 className="font-semibold text-text">Scan Results - 4can</h3>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-xs text-brand">
             <Clock3 size={12} />
@@ -122,19 +116,19 @@ export default function TelegramLiveScanPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
-          <ResultStat value="494" label="Total Messages" tone="brand" />
-          <ResultStat value="3" label="Threats Detected" tone="danger" />
-          <ResultStat value="12" label="Suspicious" tone="warning" />
-          <ResultStat value="479" label="Clean Messages" tone="success" />
+          <ResultStat value="1,120" label="Threads Scanned" tone="brand" />
+          <ResultStat value="7" label="Threats Detected" tone="danger" />
+          <ResultStat value="26" label="Suspicious" tone="warning" />
+          <ResultStat value="1,087" label="Clean Threads" tone="success" />
         </div>
 
         <div className="flex flex-wrap gap-2 text-sm">
           <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
-            Scan completed in 0.91s
+            Scan completed in 0.78s
           </span>
           <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-rose-300">
             <AlertTriangle size={14} />
-            High Priority Alert
+            High Risk Content Found
           </span>
         </div>
       </Card>
@@ -161,7 +155,7 @@ function ResultStat({
   tone: "brand" | "danger" | "warning" | "success";
 }) {
   const toneClass: Record<typeof tone, string> = {
-    brand: "text-cyan-400",
+    brand: "text-cyan-300",
     danger: "text-rose-300",
     warning: "text-amber-300",
     success: "text-emerald-300",
