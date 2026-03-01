@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useMemo, useState } from "react";
 import { CreateModal } from "@/components/ui/create-modal";
 import { Dropdown } from "@/components/ui/dropdown";
-import { AlertTriangle, Clock3, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Clock3, ShieldCheck, X } from "lucide-react";
 import {
   exportScanHistory,
   getScanHistoryOverviewList,
@@ -20,6 +20,7 @@ type Scan = {
   id: string;
   platform: string;
   type: string;
+  user: string;
   target: string;
   messages: number;
   threats: number;
@@ -33,6 +34,16 @@ type Scan = {
   deltaSuspicious: string;
   deltaClean: string;
   activeThreat?: boolean;
+};
+
+type DetailDecision = "flagged" | "cancelled" | null;
+
+type ScanDetailEntry = {
+  id: string;
+  message: string;
+  userName: string;
+  userId: string;
+  risk: "Critical" | "High" | "Low";
 };
 
 const platformOptions = [
@@ -53,6 +64,8 @@ export default function ScanHistory() {
   const [scans, setScans] = useState<Scan[]>([]);
   const [exportingType, setExportingType] = useState<ScanHistoryExportType | null>(null);
   const [exportError, setExportError] = useState("");
+  const [selectedScan, setSelectedScan] = useState<Scan | null>(null);
+  const [entryDecisions, setEntryDecisions] = useState<Record<string, DetailDecision>>({});
 
   const filteredScans = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -102,6 +115,7 @@ export default function ScanHistory() {
             id: item.scanId,
             platform: item.platform,
             type: "Overview",
+            user: item.user,
             target: item.scrapes,
             messages: item.messagesScanned,
             threats: item.threatsDetected,
@@ -152,6 +166,21 @@ export default function ScanHistory() {
       setExportingType(null);
     }
   }
+
+  const detailEntries = useMemo(
+    () => (selectedScan ? buildScanDetailEntries(selectedScan) : []),
+    [selectedScan],
+  );
+
+  function setEntryDecision(entryId: string, decision: Exclude<DetailDecision, null>) {
+    setEntryDecisions((prev) => ({ ...prev, [entryId]: decision }));
+  }
+
+  function closeDetailsModal() {
+    setSelectedScan(null);
+    setEntryDecisions({});
+  }
+
   return (
     <div className="space-y-6 sm:space-y-8">
 
@@ -216,6 +245,7 @@ export default function ScanHistory() {
           <ScanCard
             key={scan.id}
             scan={scan}
+            onViewDetails={() => setSelectedScan(scan)}
           />
         ))}
         {filteredScans.length === 0 ? (
@@ -253,6 +283,91 @@ export default function ScanHistory() {
   />
   {exportError ? <p className="text-xs text-rose-300">{exportError}</p> : null}
 </CreateModal>
+
+      {selectedScan ? (
+        <div className="fixed inset-y-0 left-0 right-0 z-[290] flex items-center justify-center overflow-hidden p-3 sm:p-6 lg:left-[248px]">
+          <div
+            className="animate-modal-fade absolute inset-0 bg-[#121212]/55 backdrop-blur-md backdrop-saturate-125"
+            onClick={closeDetailsModal}
+          />
+
+          <div className="animate-modal-pop modal-panel relative mx-auto w-full max-w-5xl overflow-hidden rounded-2xl p-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#2a3a45]/45 pb-4">
+              <div className="text-center sm:text-left">
+                <h3 className="modal-title text-xl font-semibold">
+                  Scan Details - {selectedScan.platform}
+                </h3>
+                <p className="mt-1 text-sm text-mutetext">
+                  Target: {selectedScan.target} | Scan ID: {selectedScan.id}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDetailsModal}
+                className="modal-close rounded-md p-1 transition hover:bg-[#172434]"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-[#2a3a45]/45 bg-[#0c1219]">
+              <div className="overflow-x-auto">
+                <div className="min-w-[860px]">
+                  <div className="grid grid-cols-[3.2fr_1.6fr_1.6fr] gap-3 border-b border-[#2a3a45]/45 px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-mutetext">
+                    <span className="text-center">Message</span>
+                    <span className="text-center">User Name</span>
+                    <span className="text-center">Actions</span>
+                  </div>
+
+                  <div className="max-h-[50vh] overflow-y-auto">
+                    {detailEntries.map((entry) => {
+                      const decision = entryDecisions[entry.id] ?? null;
+                      return (
+                        <div
+                          key={entry.id}
+                          className="grid grid-cols-[3.2fr_1.6fr_1.6fr] items-center gap-3 border-b border-[#1d2a34] px-4 py-3 text-center text-sm text-text last:border-b-0"
+                        >
+                          <p className="truncate text-center" title={entry.message}>{entry.message}</p>
+                          <p className="truncate text-center text-[#b7cfdb]" title={entry.userName}>{entry.userName}</p>
+
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEntryDecision(entry.id, "flagged")}
+                              className={`inline-flex min-w-[86px] items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                decision === "flagged"
+                                  ? "border-emerald-400/60 bg-emerald-400 text-[#0b140f]"
+                                  : "border-emerald-500/45 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
+                              }`}
+                            >
+                              <Check size={13} />
+                              Flag
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setEntryDecision(entry.id, "cancelled")}
+                              className={`inline-flex min-w-[86px] items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                                decision === "cancelled"
+                                  ? "border-red-400/60 bg-red-400 text-[#190909]"
+                                  : "border-red-500/45 bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                              }`}
+                            >
+                              <X size={13} />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
 
     </div>
@@ -304,8 +419,10 @@ function Stat({
 
 function ScanCard({
   scan,
+  onViewDetails,
 }: {
   scan: Scan;
+  onViewDetails: () => void;
 }) {
   return (
     <Card
@@ -363,18 +480,51 @@ function ScanCard({
           )}
 
           <div className="ml-auto">
-            {/* <button
-              onClick={onExport}
-              className="rounded-lg border border-[#2a3a45]/60 bg-[#111a24] px-4 py-1.5 text-[11px] font-semibold text-text transition hover:bg-[#172434]"
+            <button
+              type="button"
+              aria-label={`View details for ${scan.platform} scan ${scan.id}`}
+              onClick={onViewDetails}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#6fc4e7]/60 bg-[#6fc4e7] px-4 py-2 text-xs font-bold uppercase tracking-[0.04em] text-[#121212] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fc4e7] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0c1219] active:translate-y-[1px]"
             >
-              Export
-            </button> */}
+              View Details
+              <ArrowRight size={14} />
+            </button>
           </div>
         </div>
 
       </CardContent>
     </Card>
   );
+}
+
+function buildScanDetailEntries(scan: Scan): ScanDetailEntry[] {
+  const normalized = scan.platform.toLowerCase();
+  const baseName = scan.user && scan.user !== "unknown" ? scan.user : `${normalized}_user`;
+  const baseId = scan.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6) || "000001";
+
+  return [
+    {
+      id: `${scan.id}-entry-1`,
+      message: `Suspicious keyword cluster detected in ${scan.target}`,
+      userName: baseName,
+      userId: `${normalized}-${baseId}-01`,
+      risk: scan.threats > 0 ? "Critical" : "Low",
+    },
+    {
+      id: `${scan.id}-entry-2`,
+      message: `Repeated forwarding pattern linked to ${scan.platform} activity`,
+      userName: `${baseName}_alt`,
+      userId: `${normalized}-${baseId}-02`,
+      risk: scan.suspicious > 0 ? "High" : "Low",
+    },
+    {
+      id: `${scan.id}-entry-3`,
+      message: `Message batch reviewed with ${scan.clean} clean records`,
+      userName: `${baseName}_review`,
+      userId: `${normalized}-${baseId}-03`,
+      risk: "Low",
+    },
+  ];
 }
 
 /* ---------------- GLASS STAT ---------------- */
