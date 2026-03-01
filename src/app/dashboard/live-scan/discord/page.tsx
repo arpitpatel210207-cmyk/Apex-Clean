@@ -107,38 +107,65 @@ export default function DiscordLiveScanPage() {
       ? "Select server or channel"
       : "No channels available";
 
+  function pickLatestDiscord(items: ScanHistoryOverviewItem[]): ScanHistoryOverviewItem | null {
+    return (
+      items
+        .filter((item) => item.platform.toLowerCase() === "discord")
+        .sort((a, b) => {
+          const aTs = Date.parse(a.lastScanAt || "");
+          const bTs = Date.parse(b.lastScanAt || "");
+          return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+        })[0] ?? null
+    );
+  }
+
+  async function pollLatestDiscordResult(previousLastScanAt?: string, startedAtMs?: number) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      try {
+        const items = await getScanHistoryOverviewList();
+        const latest = pickLatestDiscord(items);
+        if (!latest) continue;
+        setLatestDiscordHistory(latest);
+        setHistoryError(null);
+        const latestTs = Date.parse(latest.lastScanAt || "");
+        const startedMatch =
+          typeof startedAtMs === "number" &&
+          Number.isFinite(latestTs) &&
+          latestTs >= startedAtMs - 5000;
+        const changedFromPrevious =
+          !!previousLastScanAt && latest.lastScanAt !== previousLastScanAt;
+        if (startedMatch || changedFromPrevious) {
+          return;
+        }
+      } catch {
+        // Retry on next attempt.
+      }
+    }
+  }
+
   async function handleStartMonitoring() {
     if (!target || isScraping) return;
 
     setIsScraping(true);
     setScrapeError(null);
+    const startedAtMs = Date.now();
 
     try {
-      await scrapeDiscord(target);
+      await scrapeDiscord(target, apexModel);
       setLastUpdatedAt(
         new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
       );
-      try {
-        const items = await getScanHistoryOverviewList();
-        const discordItems = items
-          .filter((item) => item.platform.toLowerCase() === "discord")
-          .sort((a, b) => {
-            const aTs = Date.parse(a.lastScanAt || "");
-            const bTs = Date.parse(b.lastScanAt || "");
-            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
-          })
-          .slice(0, 10);
-        const latestDiscord = discordItems[0] ?? null;
-        setLatestDiscordHistory(latestDiscord);
-        setHistoryError(null);
-      } catch {
-        // Monitoring succeeded; keep previous scan result if refresh fails.
-      }
       const selectedChannel = channels.find((channel) => channel.id === target);
-      toast.success(`Successfully scraped `);
+      toast.success(`Successfully scraped ${selectedChannel?.title ?? "selected channel"}.`);
+
+      // Poll briefly because backend may write scan-history row a moment later.
+      void pollLatestDiscordResult(latestDiscordHistory?.lastScanAt, startedAtMs);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to start Discord monitoring.";

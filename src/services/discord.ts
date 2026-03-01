@@ -1,10 +1,12 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type DiscordChannel = {
   id: string;
   title: string;
   type: string;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+const BASE_URL = getApiBaseUrl();
 const CHANNELS_ROUTE = "/v1/discord/channels";
 const CHANNELS_ROUTE_FALLBACK = "/discord/channels";
 const SCRAPE_ROUTE = "/scrape/discord";
@@ -92,21 +94,21 @@ function parseChannels(payload: unknown): DiscordChannel[] {
 }
 
 async function requestChannels(path: string): Promise<DiscordChannel[]> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${path}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(body, res.status));
+    throw new Error(extractErrorMessage(res.body, res.status));
   }
 
-  return parseChannels(body);
+  return parseChannels(res.body);
 }
 
 export async function getDiscordChannels(): Promise<DiscordChannel[]> {
@@ -129,25 +131,29 @@ export async function getDiscordChannels(): Promise<DiscordChannel[]> {
   }
 }
 
-export async function scrapeDiscord(channelId: string): Promise<void> {
+export async function scrapeDiscord(
+  channelId: string,
+  apexModel: "small" | "large" = "small",
+): Promise<void> {
   const scanId = createScanId();
-  const res = await fetch(`${BASE_URL}${SCRAPE_ROUTE}`, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      channel_id: channelId,
-      scan_id: scanId,
-      scanId,
-    }),
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${SCRAPE_ROUTE}`,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channel_id: channelId,
+        scan_id: scanId,
+        scanId,
+        apexModel,
+      }),
+    },
+    { timeoutMs: 25000, retries: 0, skipBodyOnSuccess: true },
+  );
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(body, res.status));
+    throw new Error(extractErrorMessage(res.body, res.status));
   }
 }

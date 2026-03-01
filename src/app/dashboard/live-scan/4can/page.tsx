@@ -86,7 +86,7 @@ export default function FourCanLiveScanPage() {
 
   const selectedBoard = boards.find((board) => board.id === target);
   const boardOptions = boards.map((board) => ({
-    label: board.board,
+    label: board.title || board.board,
     value: board.id,
   }));
   const boardPlaceholder = isLoadingBoards
@@ -102,35 +102,62 @@ export default function FourCanLiveScanPage() {
   const hasActiveThreat = (latestFourChanHistory?.activeThreat ?? false) || threatsDetected > 0;
   const latestTarget = latestFourChanHistory?.scrapes || selectedBoard?.board || "Overview";
 
+  function pickLatestFourChan(items: ScanHistoryOverviewItem[]): ScanHistoryOverviewItem | null {
+    return (
+      items
+        .filter((item) => item.platform.toLowerCase() === "4chan")
+        .sort((a, b) => {
+          const aTs = Date.parse(a.lastScanAt || "");
+          const bTs = Date.parse(b.lastScanAt || "");
+          return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+        })[0] ?? null
+    );
+  }
+
+  async function pollLatestFourChanResult(previousLastScanAt?: string, startedAtMs?: number) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      try {
+        const items = await getScanHistoryOverviewList();
+        const latest = pickLatestFourChan(items);
+        if (!latest) continue;
+        setLatestFourChanHistory(latest);
+        setHistoryError(null);
+        const latestTs = Date.parse(latest.lastScanAt || "");
+        const startedMatch =
+          typeof startedAtMs === "number" &&
+          Number.isFinite(latestTs) &&
+          latestTs >= startedAtMs - 5000;
+        const changedFromPrevious =
+          !!previousLastScanAt && latest.lastScanAt !== previousLastScanAt;
+        if (startedMatch || changedFromPrevious) {
+          return;
+        }
+      } catch {
+        // Retry on next attempt.
+      }
+    }
+  }
+
   async function handleStartMonitoring() {
     if (!target || isScraping) return;
 
     setIsScraping(true);
     setScrapeError(null);
+    const startedAtMs = Date.now();
 
     try {
-      await scrape4chan(target);
+      await scrape4chan(target, apexModel);
       setLastUpdatedAt(
         new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
       );
-      try {
-        const items = await getScanHistoryOverviewList();
-        const latest = items
-          .filter((item) => item.platform.toLowerCase() === "4chan")
-          .sort((a, b) => {
-            const aTs = Date.parse(a.lastScanAt || "");
-            const bTs = Date.parse(b.lastScanAt || "");
-            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
-          })[0] ?? null;
-        setLatestFourChanHistory(latest);
-        setHistoryError(null);
-      } catch {
-        // Monitoring succeeded; keep previous scan result if refresh fails.
-      }
-      toast.success(`Successfully scraped `);
+      toast.success(`Successfully scraped ${selectedBoard?.title || selectedBoard?.board || "selected board"}.`);
+      void pollLatestFourChanResult(latestFourChanHistory?.lastScanAt, startedAtMs);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to start 4chan monitoring.";

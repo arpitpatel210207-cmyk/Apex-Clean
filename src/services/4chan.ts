@@ -1,3 +1,5 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type FourChanBoard = {
   id: string;
   board: string;
@@ -5,7 +7,7 @@ export type FourChanBoard = {
   type: string;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+const BASE_URL = getApiBaseUrl();
 const BOARDS_ROUTE = "/v1/fourchan/boards";
 const BOARDS_ROUTE_FALLBACK = "/fourchan/boards";
 const SCRAPE_ROUTE = "/scrape/4chan";
@@ -82,21 +84,21 @@ function parseBoards(payload: unknown): FourChanBoard[] {
 }
 
 async function requestBoards(path: string): Promise<FourChanBoard[]> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${path}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(body, res.status));
+    throw new Error(extractErrorMessage(res.body, res.status));
   }
 
-  return parseBoards(body);
+  return parseBoards(res.body);
 }
 
 export async function get4chanBoards(): Promise<FourChanBoard[]> {
@@ -119,25 +121,29 @@ export async function get4chanBoards(): Promise<FourChanBoard[]> {
   }
 }
 
-export async function scrape4chan(board: string): Promise<void> {
+export async function scrape4chan(
+  board: string,
+  apexModel: "small" | "large" = "small",
+): Promise<void> {
   const scanId = createScanId();
-  const res = await fetch(`${BASE_URL}${SCRAPE_ROUTE}`, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      board,
-      scan_id: scanId,
-      scanId,
-    }),
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${SCRAPE_ROUTE}`,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        board,
+        scan_id: scanId,
+        scanId,
+        apexModel,
+      }),
+    },
+    { timeoutMs: 25000, retries: 0, skipBodyOnSuccess: true },
+  );
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(body, res.status));
+    throw new Error(extractErrorMessage(res.body, res.status));
   }
 }

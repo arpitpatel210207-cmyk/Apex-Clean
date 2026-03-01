@@ -6,7 +6,9 @@ import { CreateModal } from "@/components/ui/create-modal";
 import { Dropdown } from "@/components/ui/dropdown";
 import { AlertTriangle, ArrowRight, Check, Clock3, ShieldCheck, X } from "lucide-react";
 import {
+  cancelModerationFlag,
   exportScanHistory,
+  flagModerationUser,
   getModerationPredictions,
   getScanHistoryOverviewList,
   getScanHistorySummary,
@@ -48,6 +50,8 @@ const platformOptions = [
   { label: "Telegram", value: "telegram" },
   { label: "4chan", value: "4chan" },
 ];
+const SCAN_HISTORY_SUMMARY_CACHE_KEY = "scan_history_summary_cache_v1";
+const SCAN_HISTORY_OVERVIEW_CACHE_KEY = "scan_history_overview_cache_v1";
 /* ======================================================= */
 
 export default function ScanHistory() {
@@ -65,6 +69,18 @@ export default function ScanHistory() {
   const [detailEntries, setDetailEntries] = useState<ScanDetailEntry[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState("");
+  const [flaggingEntryId, setFlaggingEntryId] = useState<string | null>(null);
+  const [cancellingEntryId, setCancellingEntryId] = useState<string | null>(null);
+
+  async function fetchOverviewWithRetry(retries = 1): Promise<ScanHistoryOverviewItem[]> {
+    try {
+      return await getScanHistoryOverviewList();
+    } catch (error) {
+      if (retries <= 0) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      return fetchOverviewWithRetry(retries - 1);
+    }
+  }
 
   const filteredScans = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -87,17 +103,30 @@ export default function ScanHistory() {
   const successRate = totalMessages ? Math.round((totalClean / totalMessages) * 100) : 0;
 
   useEffect(() => {
+    let hasCachedSummary = false;
+    try {
+      const cached = window.localStorage.getItem(SCAN_HISTORY_SUMMARY_CACHE_KEY);
+      if (cached) {
+        setSummary(JSON.parse(cached) as ScanHistorySummary);
+        hasCachedSummary = true;
+      }
+    } catch {}
+
     let mounted = true;
     getScanHistorySummary()
       .then((data) => {
         if (!mounted) return;
         setSummary(data);
+        try {
+          window.localStorage.setItem(SCAN_HISTORY_SUMMARY_CACHE_KEY, JSON.stringify(data));
+        } catch {}
+        setSummaryError("");
       })
       .catch((error: unknown) => {
         if (!mounted) return;
-        setSummaryError(
-          error instanceof Error ? error.message : "Failed to load summary.",
-        );
+        const message = error instanceof Error ? error.message : "Failed to load summary.";
+        // Keep cached summary visible when API is temporarily failing.
+        setSummaryError(hasCachedSummary ? "" : message);
       });
     return () => {
       mounted = false;
@@ -105,10 +134,12 @@ export default function ScanHistory() {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    getScanHistoryOverviewList()
-      .then((items: ScanHistoryOverviewItem[]) => {
-        if (!mounted) return;
+    let hasCachedOverview = false;
+    try {
+      const cached = window.localStorage.getItem(SCAN_HISTORY_OVERVIEW_CACHE_KEY);
+      if (cached) {
+        const items = JSON.parse(cached) as ScanHistoryOverviewItem[];
+        hasCachedOverview = true;
         setScans(
           items.map((item) => ({
             id: item.scanId,
@@ -130,12 +161,45 @@ export default function ScanHistory() {
             activeThreat: item.activeThreat,
           })),
         );
+      }
+    } catch {}
+
+    let mounted = true;
+    fetchOverviewWithRetry(1)
+      .then((items: ScanHistoryOverviewItem[]) => {
+        if (!mounted) return;
+        try {
+          window.localStorage.setItem(SCAN_HISTORY_OVERVIEW_CACHE_KEY, JSON.stringify(items));
+        } catch {}
+        setScans(
+          items.map((item) => ({
+            id: item.scanId,
+            platform: item.platform,
+            type: "Overview",
+            user: item.user,
+            target: item.scrapes,
+            messages: item.messagesScanned,
+            threats: item.threatsDetected,
+            suspicious: item.suspicious,
+            clean: item.cleanRecords,
+            risk: item.activeThreat ? "High" : "Low",
+            time: item.lastScanAgo,
+            duration: `${item.scanCompletedSecs}s`,
+            deltaMessages: "0%",
+            deltaThreats: "0%",
+            deltaSuspicious: "0%",
+            deltaClean: "0%",
+            activeThreat: item.activeThreat,
+          })),
+        );
+        setOverviewError("");
       })
       .catch((error: unknown) => {
         if (!mounted) return;
-        setOverviewError(
-          error instanceof Error ? error.message : "Failed to load scan history list.",
-        );
+        const message =
+          error instanceof Error ? error.message : "Failed to load scan history list.";
+        // Keep cached overview visible when API is temporarily failing.
+        setOverviewError(hasCachedOverview ? "" : message);
       });
 
     return () => {
@@ -204,12 +268,56 @@ export default function ScanHistory() {
     setEntryDecisions((prev) => ({ ...prev, [entryId]: decision }));
   }
 
+  async function handleFlagEntry(entry: ScanDetailEntry) {
+    if (!selectedScan || flaggingEntryId || cancellingEntryId) return;
+    setFlaggingEntryId(entry.id);
+    try {
+      await flagModerationUser({
+        predictionId: entry.id,
+        scanId: selectedScan.id,
+        userId: entry.userId,
+        actorName: entry.userName,
+        message: entry.message,
+      });
+      setEntryDecision(entry.id, "flagged");
+      setDetailsError("");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to flag user.";
+      setDetailsError(message);
+    } finally {
+      setFlaggingEntryId(null);
+    }
+  }
+
+  async function handleCancelEntry(entry: ScanDetailEntry) {
+    if (!selectedScan || flaggingEntryId || cancellingEntryId) return;
+    setCancellingEntryId(entry.id);
+    try {
+      await cancelModerationFlag({
+        predictionId: entry.id,
+        scanId: selectedScan.id,
+        userId: entry.userId,
+        actorName: entry.userName,
+        message: entry.message,
+      });
+      setEntryDecision(entry.id, "cancelled");
+      setDetailsError("");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to cancel flag.";
+      setDetailsError(message);
+    } finally {
+      setCancellingEntryId(null);
+    }
+  }
+
   function closeDetailsModal() {
     setSelectedScan(null);
     setEntryDecisions({});
     setDetailEntries([]);
     setDetailsError("");
     setDetailsLoading(false);
+    setFlaggingEntryId(null);
+    setCancellingEntryId(null);
   }
 
   return (
@@ -382,28 +490,30 @@ export default function ScanHistory() {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               type="button"
-                              onClick={() => setEntryDecision(entry.id, "flagged")}
+                              onClick={() => handleFlagEntry(entry)}
+                              disabled={flaggingEntryId !== null || cancellingEntryId !== null}
                               className={`inline-flex min-w-[86px] items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                                 decision === "flagged"
                                   ? "border-emerald-400/60 bg-emerald-400 text-[#0b140f]"
                                   : "border-emerald-500/45 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
-                              }`}
+                              } ${flaggingEntryId !== null || cancellingEntryId !== null ? "cursor-not-allowed opacity-70" : ""}`}
                             >
                               <Check size={13} />
-                              Flag
+                              {flaggingEntryId === entry.id ? "Flagging..." : "Flag"}
                             </button>
 
                             <button
                               type="button"
-                              onClick={() => setEntryDecision(entry.id, "cancelled")}
+                              onClick={() => handleCancelEntry(entry)}
+                              disabled={flaggingEntryId !== null || cancellingEntryId !== null}
                               className={`inline-flex min-w-[86px] items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                                 decision === "cancelled"
                                   ? "border-red-400/60 bg-red-400 text-[#190909]"
                                   : "border-red-500/45 bg-red-500/15 text-red-300 hover:bg-red-500/25"
-                              }`}
+                              } ${flaggingEntryId !== null || cancellingEntryId !== null ? "cursor-not-allowed opacity-70" : ""}`}
                             >
                               <X size={13} />
-                              Cancel
+                              {cancellingEntryId === entry.id ? "Cancelling..." : "Cancel"}
                             </button>
                           </div>
                         </div>

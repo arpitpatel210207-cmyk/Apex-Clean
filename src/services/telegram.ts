@@ -1,3 +1,5 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type TelegramChannel = {
   id: string;
   title: string;
@@ -23,7 +25,7 @@ export type TelegramScrapeItem = {
   timestamp: string;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+const BASE_URL = getApiBaseUrl();
 const CHANNELS_ROUTE = "/v1/telegram/channels";
 const CHANNELS_ROUTE_FALLBACK = "/telegram/channels";
 const SCRAPE_ROUTE = "/scrape/telegram";
@@ -181,39 +183,37 @@ function parseScrapeItems(payload: unknown): TelegramScrapeItem[] {
 }
 
 async function requestChannels(path: string): Promise<TelegramChannel[]> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${path}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(body, res.status));
+    throw new Error(extractErrorMessage(res.body, res.status));
   }
 
-  return parseChannels(body);
+  return parseChannels(res.body);
 }
 
 async function requestScrape(
   bodyPayload: Record<string, unknown>,
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
-  const res = await fetch(`${BASE_URL}${SCRAPE_ROUTE}`, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bodyPayload),
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
-
-  return { ok: res.ok, status: res.status, body };
+  return requestJson(
+    `${BASE_URL}${SCRAPE_ROUTE}`,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bodyPayload),
+    },
+    { timeoutMs: 25000, retries: 0, skipBodyOnSuccess: true },
+  );
 }
 
 export async function getTelegramChannels(): Promise<TelegramChannel[]> {

@@ -27,11 +27,41 @@ export type ModerationPrediction = {
   risk: "Critical" | "High" | "Low";
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+export type FlagUserPayload = {
+  predictionId: string;
+  scanId: string;
+  userId: string;
+  actorName?: string;
+  message?: string;
+};
+
+function normalizeBaseUrl(raw: string | undefined): string {
+  const value = (raw ?? "").trim();
+  if (!value) return "/api";
+
+  // Guard against common broken env values like "http://loc".
+  if (value === "http://loc" || value === "https://loc") return "/api";
+
+  if (value.startsWith("/")) {
+    return value.replace(/\/+$/, "") || "/api";
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.hostname === "loc") return "/api";
+    return value.replace(/\/+$/, "");
+  } catch {
+    return "/api";
+  }
+}
+
+const BASE_URL = normalizeBaseUrl(process.env.NEXT_PUBLIC_ADMIN_API_URL);
 const SUMMARY_ROUTE = "/scan-history/summary";
 const OVERVIEW_ROUTE = "/scan-history/overview";
 const EXPORT_ROUTE = "/scan-history/export";
 const MODERATION_PREDICTIONS_ROUTE = "/moderation/predictions";
+const MODERATION_FLAG_USER_ROUTE = "/moderation/flag-user";
+const MODERATION_CANCEL_FLAG_ROUTE = "/moderation/cancel-flag";
 
 function asObject(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -64,6 +94,7 @@ function asBoolean(value: unknown, fallback = false): boolean {
 export async function getScanHistorySummary(): Promise<ScanHistorySummary> {
   const res = await fetch(`${BASE_URL}${SUMMARY_ROUTE}`, {
     cache: "no-store",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
 
@@ -95,8 +126,11 @@ export async function getScanHistorySummary(): Promise<ScanHistorySummary> {
 }
 
 export async function getScanHistoryOverviewList(): Promise<ScanHistoryOverviewItem[]> {
-  const res = await fetch(`${BASE_URL}${OVERVIEW_ROUTE}`, {
+  const separator = OVERVIEW_ROUTE.includes("?") ? "&" : "?";
+  const url = `${BASE_URL}${OVERVIEW_ROUTE}${separator}_ts=${Date.now()}`;
+  const res = await fetch(url, {
     cache: "no-store",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
 
@@ -130,8 +164,17 @@ export async function getScanHistoryOverviewList(): Promise<ScanHistoryOverviewI
 
   return list.map((row, index) => {
     const item = asObject(row);
+    const parsedScanId = asString(
+      item.scanId ??
+        item.scan_id ??
+        item.scanID ??
+        item.scan ??
+        item.id ??
+        item._id,
+      `scan-${index + 1}`,
+    );
     return {
-      scanId: asString(item.scanId ?? item.scan_id, `scan-${index + 1}`),
+      scanId: parsedScanId,
       platform: asString(item.platform, "unknown"),
       user: asString(item.user, "unknown"),
       scrapes: asString(item.scrapes ?? item.target, "unknown"),
@@ -162,6 +205,7 @@ export async function exportScanHistory(type: ScanHistoryExportType): Promise<{
     {
       method: "GET",
       cache: "no-store",
+      credentials: "include",
       headers: {
         Accept: acceptByType[type],
       },
@@ -191,26 +235,66 @@ function normalizeRisk(raw: unknown): "Critical" | "High" | "Low" {
   return "Low";
 }
 
+function findFirstArrayCandidate(value: unknown, depth = 0): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (depth > 4) return null;
+
+  const obj = asObject(value);
+  if (!Object.keys(obj).length) return null;
+
+  const preferredKeys = [
+    "items",
+    "results",
+    "predictions",
+    "list",
+    "data",
+    "rows",
+    "messages",
+    "records",
+  ];
+
+  for (const key of preferredKeys) {
+    if (key in obj) {
+      const found = findFirstArrayCandidate(obj[key], depth + 1);
+      if (found) return found;
+    }
+  }
+
+  for (const nested of Object.values(obj)) {
+    const found = findFirstArrayCandidate(nested, depth + 1);
+    if (found) return found;
+  }
+
+  return null;
+}
+
 function parseModerationPredictions(payload: unknown): ModerationPrediction[] {
   const root = asObject(payload);
-  const data = asObject(root.data ?? root);
+  const dataRaw = root.data ?? root;
+  const data = asObject(dataRaw);
   const listRaw =
+    (Array.isArray(dataRaw) ? dataRaw : null) ??
     data.items ??
     data.results ??
     data.predictions ??
     data.list ??
+    data.data ??
     root.items ??
     root.results ??
     root.predictions;
 
-  const list = Array.isArray(listRaw) ? listRaw : [];
+  const list =
+    (Array.isArray(listRaw) ? listRaw : null) ??
+    findFirstArrayCandidate(dataRaw) ??
+    findFirstArrayCandidate(root) ??
+    [];
 
   return list.map((row, index) => {
     const item = asObject(row);
     return {
       id: asString(
-        item.id ??
-          item._id ??
+        item._id ??
+          item.id ??
           item.predictionId ??
           item.prediction_id ??
           item.messageId ??
@@ -218,7 +302,9 @@ function parseModerationPredictions(payload: unknown): ModerationPrediction[] {
         `prediction-${index + 1}`,
       ),
       message: asString(
-        item.message ??
+        item.cleaned_message ??
+          item.cleanedMessage ??
+          item.message ??
           item.text ??
           item.content ??
           item.caption ??
@@ -226,7 +312,9 @@ function parseModerationPredictions(payload: unknown): ModerationPrediction[] {
         "No message",
       ),
       userName: asString(
-        item.userName ??
+        item.actor_name ??
+          item.actorName ??
+          item.userName ??
           item.user_name ??
           item.username ??
           item.user ??
@@ -251,8 +339,9 @@ function parseModerationPredictions(payload: unknown): ModerationPrediction[] {
 }
 
 export async function getModerationPredictions(scanId: string): Promise<ModerationPrediction[]> {
+  const encoded = encodeURIComponent(scanId);
   const res = await fetch(
-    `${BASE_URL}${MODERATION_PREDICTIONS_ROUTE}?scan_id=${encodeURIComponent(scanId)}`,
+    `${BASE_URL}${MODERATION_PREDICTIONS_ROUTE}?scan_id=${encoded}`,
     {
       cache: "no-store",
       credentials: "include",
@@ -277,4 +366,68 @@ export async function getModerationPredictions(scanId: string): Promise<Moderati
   }
 
   return parseModerationPredictions(body);
+}
+
+export async function flagModerationUser(payload: FlagUserPayload): Promise<void> {
+  const res = await fetch(`${BASE_URL}${MODERATION_FLAG_USER_ROUTE}`, {
+    method: "POST",
+    cache: "no-store",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prediction_id: payload.predictionId,
+      scan_id: payload.scanId,
+      user_id: payload.userId,
+      actor_name: payload.actorName,
+      cleaned_message: payload.message,
+      reason: "Repeated drug purchase messages",
+    }),
+  });
+
+  if (!res.ok) {
+    const contentType = res.headers.get("content-type") ?? "";
+    const isJson = contentType.includes("application/json");
+    const body = isJson ? await res.json() : await res.text();
+    const message =
+      (typeof body === "object" &&
+        body !== null &&
+        "message" in body &&
+        typeof body.message === "string" &&
+        body.message) ||
+      (typeof body === "string" && body) ||
+      "Failed to flag user.";
+    throw new Error(message);
+  }
+}
+
+export async function cancelModerationFlag(payload: FlagUserPayload): Promise<void> {
+  const res = await fetch(`${BASE_URL}${MODERATION_CANCEL_FLAG_ROUTE}`, {
+    method: "POST",
+    cache: "no-store",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prediction_id: payload.predictionId,
+      scan_id: payload.scanId,
+      user_id: payload.userId,
+      actor_name: payload.actorName,
+      cleaned_message: payload.message,
+      cancel_reason: "False positive after review",
+    }),
+  });
+
+  if (!res.ok) {
+    const contentType = res.headers.get("content-type") ?? "";
+    const isJson = contentType.includes("application/json");
+    const body = isJson ? await res.json() : await res.text();
+    const message =
+      (typeof body === "object" &&
+        body !== null &&
+        "message" in body &&
+        typeof body.message === "string" &&
+        body.message) ||
+      (typeof body === "string" && body) ||
+      "Failed to cancel flag.";
+    throw new Error(message);
+  }
 }

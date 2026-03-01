@@ -4,46 +4,165 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, MapPin, ShieldAlert, Timer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dropdown } from "@/components/ui/dropdown";
+import { getApiBaseUrl, requestJson } from "@/services/http";
 
 type FlaggedUser = {
-  id: number;
+  id: string;
   username: string;
   platform: string;
   location: string;
   flaggedAt: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
-const FLAGGED_USERS: FlaggedUser[] = [
-  {
-    id: 1,
-    username: "drugdealer_22",
-    platform: "Telegram",
-    location: "Berlin, Germany",
-    flaggedAt: "2025-02-01 14:32",
-  },
-  {
-    id: 2,
-    username: "supply_chain_x",
-    platform: "Discord",
-    location: "New York, USA",
-    flaggedAt: "2025-02-02 09:12",
-  },
-  {
-    id: 3,
-    username: "darkmarket_admin",
-    platform: "4chan",
-    location: "Unknown",
-    flaggedAt: "2025-02-03 21:08",
-  },
-];
-
 const NOTIFIED_STORAGE_KEY = "apex_notified_user_ids";
+const FLAGGED_USERS_CACHE_KEY = "apex_flagged_users_cache_v1";
+const FLAGGED_USERS_ROUTE = "/moderation/flagged-users";
+const BASE_URL = getApiBaseUrl();
+let flaggedUsersInFlight: Promise<FlaggedUser[]> | null = null;
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function asString(value: unknown, fallback = ""): string {
+  const str = String(value ?? "").trim();
+  return str || fallback;
+}
+
+function normalizePlatform(value: string): string {
+  const lower = value.toLowerCase();
+  if (lower === "telegram") return "Telegram";
+  if (lower === "discord") return "Discord";
+  if (lower === "4chan" || lower === "fourchan") return "4chan";
+  return value || "Unknown";
+}
+
+function asNumber(value: unknown): number | null {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function extractErrorMessage(body: unknown, status: number): string {
+  if (typeof body === "object" && body !== null) {
+    if ("detail" in body && typeof body.detail === "string" && body.detail) {
+      return body.detail;
+    }
+    if ("message" in body && typeof body.message === "string" && body.message) {
+      return body.message;
+    }
+  }
+  if (typeof body === "string" && body) return body;
+  return status > 0 ? `Request failed with status ${status}` : "Request failed.";
+}
+
+async function getFlaggedUsers(): Promise<FlaggedUser[]> {
+  if (flaggedUsersInFlight) return flaggedUsersInFlight;
+
+  flaggedUsersInFlight = (async () => {
+    const res = await requestJson(
+      `${BASE_URL}${FLAGGED_USERS_ROUTE}`,
+      {
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      },
+      { timeoutMs: 20000, retries: 2, retryDelayMs: 500 },
+    );
+
+    if (!res.ok) {
+      throw new Error(extractErrorMessage(res.body, res.status));
+    }
+
+    const root = asObject(res.body);
+    const data = root.data;
+    const rows =
+      (Array.isArray(data) ? data : null) ??
+      (Array.isArray(root.items) ? root.items : null) ??
+      (Array.isArray(root.results) ? root.results : null) ??
+      (Array.isArray(asObject(data).items) ? asObject(data).items : null) ??
+      (Array.isArray(asObject(data).results) ? asObject(data).results : null) ??
+      [];
+
+    return rows.map((row, index) => {
+      const item = asObject(row);
+      const locationObj = asObject(item.location);
+      const username =
+        asString(
+          item.actor_name ??
+            item.actorName ??
+            item.username ??
+            item.user_name ??
+            item.userName,
+        ) || "unknown_user";
+      return {
+        id: asString(item._id ?? item.id ?? item.user_id ?? item.userId, `user-${index + 1}`),
+        username: username.startsWith("@") ? username.slice(1) : username,
+        platform: normalizePlatform(
+          asString(
+            item.platform ??
+              item.platform_key ??
+              item.source ??
+              item.channel ??
+              item.network,
+            "Unknown",
+          ),
+        ),
+        location: asString(
+          item.detected_location ??
+            item.geo ??
+            locationObj.name ??
+            locationObj.label ??
+            item.location_text ??
+            item.location ??
+            "Unknown",
+        ),
+        flaggedAt: asString(
+          item.flagged_at ?? item.flaggedAt ?? item.created_at ?? item.createdAt ?? "Unknown",
+        ),
+        latitude: asNumber(
+          locationObj.lat ??
+            locationObj.latitude ??
+            item.lat ??
+            item.latitude ??
+            item.location_lat ??
+            item.locationLat,
+        ),
+        longitude: asNumber(
+          locationObj.lng ??
+            locationObj.lon ??
+            locationObj.long ??
+            locationObj.longitude ??
+            item.lng ??
+            item.lon ??
+            item.long ??
+            item.longitude ??
+            item.location_lng ??
+            item.locationLon,
+        ),
+      };
+    });
+  })();
+
+  try {
+    return await flaggedUsersInFlight;
+  } finally {
+    flaggedUsersInFlight = null;
+  }
+}
 
 export default function TrackUser() {
   const [platform, setPlatform] = useState("all");
   const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<FlaggedUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState("");
   const [selectedUser, setSelectedUser] = useState<FlaggedUser | null>(null);
-  const [notifiedIds, setNotifiedIds] = useState<number[]>([]);
+  const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
   const [notifyingUser, setNotifyingUser] = useState<FlaggedUser | null>(null);
   const [notifyStage, setNotifyStage] = useState<"confirm" | "success">("confirm");
   const isLocationPanelOpen = selectedUser !== null;
@@ -62,7 +181,7 @@ export default function TrackUser() {
 
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return FLAGGED_USERS.filter((u) => {
+    return users.filter((u) => {
       const matchPlatform =
         platform === "all" || u.platform.toLowerCase() === platform;
       const matchQuery =
@@ -72,14 +191,53 @@ export default function TrackUser() {
         u.platform.toLowerCase().includes(q);
       return matchPlatform && matchQuery;
     });
-  }, [platform, query]);
+  }, [platform, query, users]);
+
+  useEffect(() => {
+    let hasCachedUsers = false;
+    try {
+      const cached = localStorage.getItem(FLAGGED_USERS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as FlaggedUser[];
+        if (Array.isArray(parsed)) {
+          setUsers(parsed);
+          hasCachedUsers = true;
+        }
+      }
+    } catch {}
+
+    let mounted = true;
+    getFlaggedUsers()
+      .then((items) => {
+        if (!mounted) return;
+        setUsers(items);
+        try {
+          localStorage.setItem(FLAGGED_USERS_CACHE_KEY, JSON.stringify(items));
+        } catch {}
+        setUsersError("");
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        const message = error instanceof Error ? error.message : "Failed to load flagged users.";
+        setUsersError(hasCachedUsers ? "" : message);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoadingUsers(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const raw = localStorage.getItem(NOTIFIED_STORAGE_KEY);
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw) as number[];
-      if (Array.isArray(parsed)) setNotifiedIds(parsed);
+      const parsed = JSON.parse(raw) as unknown[];
+      if (Array.isArray(parsed)) {
+        setNotifiedIds(parsed.map((id) => String(id)));
+      }
     } catch {}
   }, []);
 
@@ -125,7 +283,7 @@ export default function TrackUser() {
     []
   );
 
-  function persistNotified(ids: number[]) {
+  function persistNotified(ids: string[]) {
     setNotifiedIds(ids);
     localStorage.setItem(NOTIFIED_STORAGE_KEY, JSON.stringify(ids));
     window.dispatchEvent(new Event("notified-users-updated"));
@@ -206,6 +364,24 @@ export default function TrackUser() {
         </Card>
 
         <div className="space-y-5">
+          {usersError ? (
+            <Card
+              className="border p-4 text-sm text-rose-300"
+              style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
+            >
+              {usersError}
+            </Card>
+          ) : null}
+
+          {isLoadingUsers ? (
+            <Card
+              className="border p-12 text-center text-mutetext"
+              style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
+            >
+              Loading flagged users...
+            </Card>
+          ) : null}
+
           {filteredUsers.map((user) => (
             <UserCard
               key={user.id}
@@ -216,7 +392,7 @@ export default function TrackUser() {
             />
           ))}
 
-          {filteredUsers.length === 0 && (
+          {!isLoadingUsers && filteredUsers.length === 0 && (
             <Card
               className="border p-12 text-center text-mutetext"
               style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
@@ -445,8 +621,10 @@ function LocationPanel({
 }) {
   if (!user) return null;
 
-  const hasLocation = user.location.toLowerCase() !== "unknown";
-  const mapEmbedSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(user.location)}&z=11&iwloc=B&output=embed`;
+  const hasCoordinates = user.latitude !== null && user.longitude !== null;
+  const hasLocation = hasCoordinates || user.location.toLowerCase() !== "unknown";
+  const mapQuery = hasCoordinates ? `${user.latitude},${user.longitude}` : user.location;
+  const mapEmbedSrc = `https://maps.google.com/maps?hl=en&q=${encodeURIComponent(mapQuery)}&z=11&iwloc=B&output=embed`;
 
   return (
     <div

@@ -111,7 +111,7 @@ export default function DashboardPage() {
     icon: LucideIcon;
   }[] = [
     {
-      title: "Total Users",
+      title: "Total Admins",
       current: summary?.totalUsers ?? 0,
       previous: summary?.previousTotalUsers ?? summary?.totalUsers ?? 0,
       icon: Users,
@@ -131,7 +131,7 @@ export default function DashboardPage() {
       icon: ShieldAlert,
     },
     {
-      title: "Active Users",
+      title: "Active Admins",
       current: summary?.activeUsers ?? 0,
       previous: summary?.previousActiveUsers ?? summary?.activeUsers ?? 0,
       icon: Clock,

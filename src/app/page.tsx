@@ -19,7 +19,7 @@ export default function Home() {
 
         <div className="mt-6 grid gap-3">
           <Link
-            href="/dashboard"
+            href="/login"
            className="inline-flex items-center justify-center rounded-lg bg-[#6fc4e7] text-[#121212] border border-[#6fc4e7]/60 font-medium py-2 hover:bg-[#6fc4e7]/90 transition"
 
           >

@@ -108,6 +108,41 @@ export default function TelegramLiveScanPage() {
     };
   }, []);
 
+  async function pollLatestTelegramResult(previousLastScanAt?: string, startedAtMs?: number) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      try {
+        const items = await getScanHistoryOverviewList();
+        const telegramItems = items
+          .filter((item) => item.platform.toLowerCase() === "telegram")
+          .sort((a, b) => {
+            const aTs = Date.parse(a.lastScanAt || "");
+            const bTs = Date.parse(b.lastScanAt || "");
+            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+          })
+          .slice(0, 10);
+
+        setLatestTelegramHistory(telegramItems);
+        const latest = telegramItems[0] ?? null;
+        if (!latest) continue;
+        const latestTs = Date.parse(latest.lastScanAt || "");
+        const startedMatch =
+          typeof startedAtMs === "number" &&
+          Number.isFinite(latestTs) &&
+          latestTs >= startedAtMs - 5000;
+        const changedFromPrevious =
+          !!previousLastScanAt && latest.lastScanAt !== previousLastScanAt;
+        if (startedMatch || changedFromPrevious) {
+          return;
+        }
+      } catch {
+        // Retry on next attempt.
+      }
+    }
+  }
+
   async function handleStartMonitoring() {
     if (!target || isScraping) return;
 
@@ -118,6 +153,7 @@ export default function TelegramLiveScanPage() {
     }
     setIsScraping(true);
     setScrapeError(null);
+    const startedAtMs = Date.now();
 
     try {
       const items = await scrapeTelegram({
@@ -134,6 +170,7 @@ export default function TelegramLiveScanPage() {
         }),
       );
       toast.success(`Successfully scraped ${items.length} item${items.length === 1 ? "" : "s"}.`);
+      void pollLatestTelegramResult(latestHistory?.lastScanAt, startedAtMs);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to fetch Telegram scrape results.";
