@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  getDiscordChannels,
+  scrapeDiscord,
+  type DiscordChannel,
+} from "@/services/discord";
+import {
+  getScanHistoryOverviewList,
+  type ScanHistoryOverviewItem,
+} from "@/services/scan-history";
 import {
   MessageCircle,
   Users,
@@ -14,6 +25,121 @@ import {
 export default function DiscordLiveScanPage() {
   const [target, setTarget] = useState("");
   const [apexModel, setApexModel] = useState<"small" | "large">("small");
+  const [channels, setChannels] = useState<DiscordChannel[]>([]);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(true);
+  const [channelsError, setChannelsError] = useState<string | null>(null);
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [latestDiscordHistory, setLatestDiscordHistory] = useState<ScanHistoryOverviewItem | null>(
+    null,
+  );
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getDiscordChannels()
+      .then((items) => {
+        if (!mounted) return;
+        setChannels(items);
+        setChannelsError(null);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        const message = error instanceof Error ? error.message : "Failed to load Discord channels.";
+        setChannelsError(message);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoadingChannels(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getScanHistoryOverviewList()
+      .then((items) => {
+        if (!mounted) return;
+        const discordItems = items
+          .filter((item) => item.platform.toLowerCase() === "discord")
+          .sort((a, b) => {
+            const aTs = Date.parse(a.lastScanAt || "");
+            const bTs = Date.parse(b.lastScanAt || "");
+            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+          })
+          .slice(0, 10);
+        const latestDiscord = discordItems[0] ?? null;
+        setLatestDiscordHistory(latestDiscord);
+        setHistoryError(null);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to load latest Discord scan result.";
+        setHistoryError(message);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const messagesScanned = latestDiscordHistory?.messagesScanned ?? 0;
+  const threatsDetected = latestDiscordHistory?.threatsDetected ?? 0;
+  const suspiciousActivity = latestDiscordHistory?.suspicious ?? 0;
+  const cleanRecords = latestDiscordHistory?.cleanRecords ?? 0;
+  const scanCompletedSecs = latestDiscordHistory?.scanCompletedSecs ?? 0;
+  const hasActiveThreat = (latestDiscordHistory?.activeThreat ?? false) || threatsDetected > 0;
+  const latestTarget = latestDiscordHistory?.scrapes || "Overview";
+
+  async function handleStartMonitoring() {
+    if (!target || isScraping) return;
+
+    setIsScraping(true);
+    setScrapeError(null);
+
+    try {
+      await scrapeDiscord(target);
+      setLastUpdatedAt(
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+      try {
+        const items = await getScanHistoryOverviewList();
+        const discordItems = items
+          .filter((item) => item.platform.toLowerCase() === "discord")
+          .sort((a, b) => {
+            const aTs = Date.parse(a.lastScanAt || "");
+            const bTs = Date.parse(b.lastScanAt || "");
+            return (Number.isFinite(bTs) ? bTs : 0) - (Number.isFinite(aTs) ? aTs : 0);
+          })
+          .slice(0, 10);
+        const latestDiscord = discordItems[0] ?? null;
+        setLatestDiscordHistory(latestDiscord);
+        setHistoryError(null);
+      } catch {
+        // Monitoring succeeded; keep previous scan result if refresh fails.
+      }
+      const selectedChannel = channels.find((channel) => channel.id === target);
+      toast.success(
+        `Monitoring started for ${selectedChannel?.title ?? "selected channel"}.`,
+      );
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to start Discord monitoring.";
+      setScrapeError(message);
+    } finally {
+      setIsScraping(false);
+    }
+  }
 
   return (
     <div className="space-y-6 sm:space-y-7">
@@ -73,17 +199,37 @@ export default function DiscordLiveScanPage() {
             <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
               Server or Channel
             </label>
-            <input
-              className="input !border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
-              placeholder="Enter server name or invite link"
+            <Select
+              className="!border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
               value={target}
               onChange={(event) => setTarget(event.target.value)}
-            />
+              disabled={isLoadingChannels || channels.length === 0}
+            >
+              <option value="">
+                {isLoadingChannels
+                  ? "Loading channels..."
+                  : channels.length > 0
+                    ? "Select server or channel"
+                    : "No channels available"}
+              </option>
+              {channels.map((channel) => (
+                <option key={channel.id} value={channel.id}>
+                  {channel.title}
+                </option>
+              ))}
+            </Select>
+            {channelsError ? <p className="text-xs text-rose-300">{channelsError}</p> : null}
           </div>
 
-          <button className="w-full rounded-xl border border-[#4f6d81]/55 bg-[rgba(111,196,231,0.92)] py-2.5 text-sm font-semibold text-[#0f172a] transition hover:brightness-95">
-            Start Monitoring
+          <button
+            type="button"
+            onClick={handleStartMonitoring}
+            disabled={!target || isScraping}
+            className="w-full rounded-xl border border-[#4f6d81]/55 bg-[rgba(111,196,231,0.92)] py-2.5 text-sm font-semibold text-[#0f172a] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isScraping ? "Monitoring..." : "Start Monitoring"}
           </button>
+          {scrapeError ? <p className="text-xs text-rose-300">{scrapeError}</p> : null}
         </Card>
 
         <Card className="space-y-4 border border-[#2a3a45]/55 bg-card p-4 sm:p-6">
@@ -92,15 +238,19 @@ export default function DiscordLiveScanPage() {
             Active Watchlist
           </h3>
 
-          <div className="space-y-2">
-            <WatchRow name="NightOwl Server" tags="3 keywords" />
-            <WatchRow name="#market-chat" tags="4 keywords" />
-            <WatchRow name="SupplyRoom Invite" tags="2 keywords" />
+          <div className="max-h-[268px] space-y-2 overflow-y-auto pr-1">
+            {channels.length === 0 ? (
+              <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(18,22,28,0.45)] px-3 py-2 text-xs text-mutetext">
+                {isLoadingChannels ? "Loading watchlist..." : "No channels in watchlist."}
+              </div>
+            ) : (
+              channels.map((channel) => (
+                <WatchRow key={channel.id} name={channel.title} tags={channel.type} />
+              ))
+            )}
           </div>
 
-          <div className="rounded-xl border border-[#2a3a45]/45 bg-[rgba(111,196,231,0.06)] px-3 py-2 text-xs text-mutetext">
-            New alerts are pushed automatically while monitoring remains active.
-          </div>
+         
         </Card>
       </div>
 
@@ -108,30 +258,50 @@ export default function DiscordLiveScanPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-brand" />
-            <h3 className="font-semibold text-text">Scan Results - Discord</h3>
+            <div>
+              <h3 className="font-semibold text-text">Scan Results - Discord</h3>
+              <p className="text-sm text-mutetext">{latestTarget} • Overview</p>
+            </div>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-xs text-brand">
             <Clock3 size={12} />
-            Updated just now
+            {latestDiscordHistory?.lastScanAgo
+              ? `Last scan: ${latestDiscordHistory.lastScanAgo}`
+              : lastUpdatedAt
+                ? `Updated at ${lastUpdatedAt}`
+                : "Waiting for first scan"}
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
-          <ResultStat value="612" label="Messages Scanned" tone="brand" />
-          <ResultStat value="5" label="Threats Detected" tone="danger" />
-          <ResultStat value="18" label="Suspicious" tone="warning" />
-          <ResultStat value="589" label="Clean Messages" tone="success" />
+          <ResultStat value={String(messagesScanned)} label="MESSAGES SCANNED" tone="brand" />
+          <ResultStat value={String(threatsDetected)} label="THREATS DETECTED" tone="danger" />
+          <ResultStat value={String(suspiciousActivity)} label="SUSPICIOUS ACTIVITY" tone="warning" />
+          <ResultStat value={String(cleanRecords)} label="CLEAN RECORDS" tone="success" />
         </div>
 
-        <div className="flex flex-wrap gap-2 text-sm">
-          <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
-            Scan completed in 1.14s
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-rose-300">
-            <AlertTriangle size={14} />
-            Active Threat Detected
-          </span>
-        </div>
+        {messagesScanned > 0 ? (
+          <div className="flex flex-wrap gap-2 text-sm font-semibold">
+            {scanCompletedSecs > 0 ? (
+              <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
+                SCAN COMPLETED IN {scanCompletedSecs.toFixed(2)}S
+              </span>
+            ) : null}
+            {hasActiveThreat ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-rose-300">
+                <AlertTriangle size={14} />
+                ACTIVE THREAT DETECTED
+              </span>
+            ) : null}
+            {!hasActiveThreat && scanCompletedSecs <= 0 ? (
+              <span className="rounded-full border border-[#2f4250]/50 bg-[rgba(111,196,231,0.1)] px-3 py-1 text-brand">
+                Latest scrape returned {messagesScanned} item{messagesScanned === 1 ? "" : "s"}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        {historyError ? <p className="text-xs text-rose-300">{historyError}</p> : null}
       </Card>
     </div>
   );
