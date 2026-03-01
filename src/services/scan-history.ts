@@ -1,3 +1,5 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type ScanHistorySummary = {
   totalScans: number;
   threatsFound: number;
@@ -35,27 +37,7 @@ export type FlagUserPayload = {
   message?: string;
 };
 
-function normalizeBaseUrl(raw: string | undefined): string {
-  const value = (raw ?? "").trim();
-  if (!value) return "/api";
-
-  // Guard against common broken env values like "http://loc".
-  if (value === "http://loc" || value === "https://loc") return "/api";
-
-  if (value.startsWith("/")) {
-    return value.replace(/\/+$/, "") || "/api";
-  }
-
-  try {
-    const url = new URL(value);
-    if (url.hostname === "loc") return "/api";
-    return value.replace(/\/+$/, "");
-  } catch {
-    return "/api";
-  }
-}
-
-const BASE_URL = normalizeBaseUrl(process.env.NEXT_PUBLIC_ADMIN_API_URL);
+const BASE_URL = getApiBaseUrl();
 const SUMMARY_ROUTE = "/scan-history/summary";
 const OVERVIEW_ROUTE = "/scan-history/overview";
 const EXPORT_ROUTE = "/scan-history/export";
@@ -92,29 +74,29 @@ function asBoolean(value: unknown, fallback = false): boolean {
 }
 
 export async function getScanHistorySummary(): Promise<ScanHistorySummary> {
-  const res = await fetch(`${BASE_URL}${SUMMARY_ROUTE}`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${SUMMARY_ROUTE}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       `Request failed with status ${res.status}`;
     throw new Error(message);
   }
 
-  const obj = asObject(body);
+  const obj = asObject(res.body);
   const data = asObject(obj.data ?? obj);
 
   return {
@@ -128,29 +110,29 @@ export async function getScanHistorySummary(): Promise<ScanHistorySummary> {
 export async function getScanHistoryOverviewList(): Promise<ScanHistoryOverviewItem[]> {
   const separator = OVERVIEW_ROUTE.includes("?") ? "&" : "?";
   const url = `${BASE_URL}${OVERVIEW_ROUTE}${separator}_ts=${Date.now()}`;
-  const res = await fetch(url, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    url,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       `Request failed with status ${res.status}`;
     throw new Error(message);
   }
 
-  const root = asObject(body);
+  const root = asObject(res.body);
   const data = asObject(root.data ?? root);
   const listContainer = asObject(data.list ?? root.list ?? {});
   const listRaw =
@@ -200,17 +182,17 @@ export async function exportScanHistory(type: ScanHistoryExportType): Promise<{
     json: "application/json",
   };
 
-  const res = await fetch(
-    `${BASE_URL}${EXPORT_ROUTE}?format=${encodeURIComponent(type)}`,
-    {
-      method: "GET",
-      cache: "no-store",
-      credentials: "include",
-      headers: {
-        Accept: acceptByType[type],
-      },
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  const res = await fetch(`${BASE_URL}${EXPORT_ROUTE}?format=${encodeURIComponent(type)}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "include",
+    headers: {
+      Accept: acceptByType[type],
     },
-  );
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
 
   if (!res.ok) {
     const text = await res.text();
@@ -340,93 +322,92 @@ function parseModerationPredictions(payload: unknown): ModerationPrediction[] {
 
 export async function getModerationPredictions(scanId: string): Promise<ModerationPrediction[]> {
   const encoded = encodeURIComponent(scanId);
-  const res = await fetch(
+  const res = await requestJson(
     `${BASE_URL}${MODERATION_PREDICTIONS_ROUTE}?scan_id=${encoded}`,
     {
       cache: "no-store",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
     },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
   );
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
 
   if (!res.ok) {
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       `Request failed with status ${res.status}`;
     throw new Error(message);
   }
 
-  return parseModerationPredictions(body);
+  return parseModerationPredictions(res.body);
 }
 
 export async function flagModerationUser(payload: FlagUserPayload): Promise<void> {
-  const res = await fetch(`${BASE_URL}${MODERATION_FLAG_USER_ROUTE}`, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prediction_id: payload.predictionId,
-      scan_id: payload.scanId,
-      user_id: payload.userId,
-      actor_name: payload.actorName,
-      cleaned_message: payload.message,
-      reason: "Repeated drug purchase messages",
-    }),
-  });
+  const res = await requestJson(
+    `${BASE_URL}${MODERATION_FLAG_USER_ROUTE}`,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prediction_id: payload.predictionId,
+        scan_id: payload.scanId,
+        user_id: payload.userId,
+        actor_name: payload.actorName,
+        cleaned_message: payload.message,
+        reason: "Repeated drug purchase messages",
+      }),
+    },
+    { timeoutMs: 15000, retries: 0 },
+  );
 
   if (!res.ok) {
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       "Failed to flag user.";
     throw new Error(message);
   }
 }
 
 export async function cancelModerationFlag(payload: FlagUserPayload): Promise<void> {
-  const res = await fetch(`${BASE_URL}${MODERATION_CANCEL_FLAG_ROUTE}`, {
-    method: "POST",
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prediction_id: payload.predictionId,
-      scan_id: payload.scanId,
-      user_id: payload.userId,
-      actor_name: payload.actorName,
-      cleaned_message: payload.message,
-      cancel_reason: "False positive after review",
-    }),
-  });
+  const res = await requestJson(
+    `${BASE_URL}${MODERATION_CANCEL_FLAG_ROUTE}`,
+    {
+      method: "POST",
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prediction_id: payload.predictionId,
+        scan_id: payload.scanId,
+        user_id: payload.userId,
+        actor_name: payload.actorName,
+        cleaned_message: payload.message,
+        cancel_reason: "False positive after review",
+      }),
+    },
+    { timeoutMs: 15000, retries: 0 },
+  );
 
   if (!res.ok) {
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-    const body = isJson ? await res.json() : await res.text();
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       "Failed to cancel flag.";
     throw new Error(message);
   }

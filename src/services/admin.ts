@@ -1,3 +1,5 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type AdminRole = "SUPER_ADMIN" | "SUB_ADMIN";
 export type AdminStatus = "ACTIVE" | "INACTIVE";
 
@@ -31,23 +33,26 @@ export type PatchAdminPayload = Partial<PutAdminPayload> & {
   password?: string;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+const BASE_URL = getApiBaseUrl();
 const ADMINS_RESOURCE_PATH = "/admins";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE_URL}${path}`;
-  const response = await fetch(url, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
+  const response = await requestJson(
+    url,
+    {
+      ...init,
+      cache: "no-store",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
     },
-  });
+    { timeoutMs: 12000, retries: init?.method === "GET" ? 1 : 0, retryDelayMs: 400 },
+  );
 
-  const contentType = response.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await response.json() : await response.text();
+  const body = response.body;
 
   if (!response.ok) {
     const validationMessage =

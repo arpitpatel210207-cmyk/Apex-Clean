@@ -1,3 +1,5 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type PlatformKey = "4chan" | "telegram" | "discord";
 
 export type PlatformMonitoring = {
@@ -27,7 +29,7 @@ export type WeeklyOverviewPoint = {
   threats: number;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+const BASE_URL = getApiBaseUrl();
 
 const PLATFORM_ROUTE: Record<PlatformKey, string> = {
   "4chan": "/dashboard/platform/4chan",
@@ -44,29 +46,29 @@ const PLATFORM_ROUTE_FALLBACK: Partial<Record<PlatformKey, string[]>> = {
 let monitoringInFlight: Promise<DashboardMonitoringResponse> | null = null;
 
 async function request<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${path}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       `Request failed with status ${res.status}`;
     throw new Error(message);
   }
 
-  return body as T;
+  return res.body as T;
 }
 
 function asObject(value: unknown): Record<string, unknown> {

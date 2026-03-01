@@ -1,9 +1,11 @@
+import { getApiBaseUrl, requestJson } from "@/services/http";
+
 export type StateThreatScore = {
   state: string;
   score: number;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
+const BASE_URL = getApiBaseUrl();
 const STATES_ROUTE = "/ncb-score/states";
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -96,27 +98,27 @@ function parseStateScores(payload: unknown): StateThreatScore[] {
 }
 
 export async function getStateThreatScores(): Promise<StateThreatScore[]> {
-  const res = await fetch(`${BASE_URL}${STATES_ROUTE}`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  const contentType = res.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const body = isJson ? await res.json() : await res.text();
+  const res = await requestJson(
+    `${BASE_URL}${STATES_ROUTE}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+    { timeoutMs: 12000, retries: 1, retryDelayMs: 400 },
+  );
 
   if (!res.ok) {
     const message =
-      (typeof body === "object" &&
-        body !== null &&
-        "message" in body &&
-        typeof body.message === "string" &&
-        body.message) ||
-      (typeof body === "string" && body) ||
+      (typeof res.body === "object" &&
+        res.body !== null &&
+        "message" in res.body &&
+        typeof res.body.message === "string" &&
+        res.body.message) ||
+      (typeof res.body === "string" && res.body) ||
       `Request failed with status ${res.status}`;
     throw new Error(message);
   }
 
-  return parseStateScores(body);
+  return parseStateScores(res.body);
 }
