@@ -52,6 +52,41 @@ function parseStateScores(payload: unknown): StateThreatScore[] {
   }
 
   const objectData = asObject(data);
+
+  const listCandidate =
+    objectData.states ??
+    objectData.stateScores ??
+    objectData.state_scores ??
+    objectData.items ??
+    objectData.results ??
+    root.states ??
+    root.stateScores ??
+    root.state_scores;
+
+  if (Array.isArray(listCandidate)) {
+    return listCandidate
+      .map((item) => asObject(item))
+      .map((item) => ({
+        state: normalizeStateName(
+          item.state ??
+            item.stateName ??
+            item.name ??
+            item.region ??
+            item.STATE,
+        ),
+        score: normalizeScore(
+          item.score ??
+            item.ncbScore ??
+            item.ncb_score ??
+            item.threatScore ??
+            item.threat_score ??
+            item.prevalence ??
+            item.value,
+        ),
+      }))
+      .filter((row) => row.state.length > 0);
+  }
+
   const entries = Object.entries(objectData);
   if (!entries.length) return [];
 
@@ -63,6 +98,7 @@ function parseStateScores(payload: unknown): StateThreatScore[] {
 export async function getStateThreatScores(): Promise<StateThreatScore[]> {
   const res = await fetch(`${BASE_URL}${STATES_ROUTE}`, {
     cache: "no-store",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
 

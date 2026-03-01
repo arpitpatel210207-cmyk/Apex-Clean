@@ -19,11 +19,19 @@ export type ScanHistoryOverviewItem = {
   lastScanAgo: string;
 };
 export type ScanHistoryExportType = "pdf" | "csv" | "json";
+export type ModerationPrediction = {
+  id: string;
+  message: string;
+  userName: string;
+  userId: string;
+  risk: "Critical" | "High" | "Low";
+};
 
 const BASE_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? "/api";
 const SUMMARY_ROUTE = "/scan-history/summary";
 const OVERVIEW_ROUTE = "/scan-history/overview";
 const EXPORT_ROUTE = "/scan-history/export";
+const MODERATION_PREDICTIONS_ROUTE = "/moderation/predictions";
 
 function asObject(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -174,4 +182,99 @@ export async function exportScanHistory(type: ScanHistoryExportType): Promise<{
     blob,
     filename: filenameMatch?.[1] ?? fallbackName,
   };
+}
+
+function normalizeRisk(raw: unknown): "Critical" | "High" | "Low" {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (value === "critical" || value === "severe") return "Critical";
+  if (value === "high" || value === "medium") return "High";
+  return "Low";
+}
+
+function parseModerationPredictions(payload: unknown): ModerationPrediction[] {
+  const root = asObject(payload);
+  const data = asObject(root.data ?? root);
+  const listRaw =
+    data.items ??
+    data.results ??
+    data.predictions ??
+    data.list ??
+    root.items ??
+    root.results ??
+    root.predictions;
+
+  const list = Array.isArray(listRaw) ? listRaw : [];
+
+  return list.map((row, index) => {
+    const item = asObject(row);
+    return {
+      id: asString(
+        item.id ??
+          item._id ??
+          item.predictionId ??
+          item.prediction_id ??
+          item.messageId ??
+          item.message_id,
+        `prediction-${index + 1}`,
+      ),
+      message: asString(
+        item.message ??
+          item.text ??
+          item.content ??
+          item.caption ??
+          item.body,
+        "No message",
+      ),
+      userName: asString(
+        item.userName ??
+          item.user_name ??
+          item.username ??
+          item.user ??
+          "unknown",
+      ),
+      userId: asString(
+        item.userId ??
+          item.user_id ??
+          item.uid ??
+          item.senderId ??
+          item.sender_id ??
+          "unknown",
+      ),
+      risk: normalizeRisk(
+        item.risk ??
+          item.riskLevel ??
+          item.risk_level ??
+          item.severity,
+      ),
+    };
+  });
+}
+
+export async function getModerationPredictions(scanId: string): Promise<ModerationPrediction[]> {
+  const res = await fetch(
+    `${BASE_URL}${MODERATION_PREDICTIONS_ROUTE}?scan_id=${encodeURIComponent(scanId)}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+
+  const contentType = res.headers.get("content-type") ?? "";
+  const isJson = contentType.includes("application/json");
+  const body = isJson ? await res.json() : await res.text();
+
+  if (!res.ok) {
+    const message =
+      (typeof body === "object" &&
+        body !== null &&
+        "message" in body &&
+        typeof body.message === "string" &&
+        body.message) ||
+      (typeof body === "string" && body) ||
+      `Request failed with status ${res.status}`;
+    throw new Error(message);
+  }
+
+  return parseModerationPredictions(body);
 }

@@ -7,8 +7,10 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { AlertTriangle, ArrowRight, Check, Clock3, ShieldCheck, X } from "lucide-react";
 import {
   exportScanHistory,
+  getModerationPredictions,
   getScanHistoryOverviewList,
   getScanHistorySummary,
+  type ModerationPrediction,
   type ScanHistoryExportType,
   type ScanHistoryOverviewItem,
   type ScanHistorySummary,
@@ -38,13 +40,7 @@ type Scan = {
 
 type DetailDecision = "flagged" | "cancelled" | null;
 
-type ScanDetailEntry = {
-  id: string;
-  message: string;
-  userName: string;
-  userId: string;
-  risk: "Critical" | "High" | "Low";
-};
+type ScanDetailEntry = ModerationPrediction;
 
 const platformOptions = [
   { label: "All Platforms", value: "all" },
@@ -66,6 +62,9 @@ export default function ScanHistory() {
   const [exportError, setExportError] = useState("");
   const [selectedScan, setSelectedScan] = useState<Scan | null>(null);
   const [entryDecisions, setEntryDecisions] = useState<Record<string, DetailDecision>>({});
+  const [detailEntries, setDetailEntries] = useState<ScanDetailEntry[]>([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
 
   const filteredScans = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -167,10 +166,39 @@ export default function ScanHistory() {
     }
   }
 
-  const detailEntries = useMemo(
-    () => (selectedScan ? buildScanDetailEntries(selectedScan) : []),
-    [selectedScan],
-  );
+  useEffect(() => {
+    if (!selectedScan) {
+      setDetailEntries([]);
+      setDetailsError("");
+      setDetailsLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    setDetailsLoading(true);
+    setDetailsError("");
+
+    getModerationPredictions(selectedScan.id)
+      .then((items) => {
+        if (!mounted) return;
+        setDetailEntries(items);
+      })
+      .catch((error: unknown) => {
+        if (!mounted) return;
+        const message =
+          error instanceof Error ? error.message : "Failed to load moderation predictions.";
+        setDetailsError(message);
+        setDetailEntries([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setDetailsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedScan]);
 
   function setEntryDecision(entryId: string, decision: Exclude<DetailDecision, null>) {
     setEntryDecisions((prev) => ({ ...prev, [entryId]: decision }));
@@ -179,6 +207,9 @@ export default function ScanHistory() {
   function closeDetailsModal() {
     setSelectedScan(null);
     setEntryDecisions({});
+    setDetailEntries([]);
+    setDetailsError("");
+    setDetailsLoading(false);
   }
 
   return (
@@ -199,8 +230,6 @@ export default function ScanHistory() {
         <Stat title="Analyzed" value={summary?.analyzed ?? totalMessages} />
         <Stat title="Success Rate" value={`${summary?.successRate ?? successRate}%`} success />
       </div>
-      {summaryError ? <p className="text-sm text-rose-300">{summaryError}</p> : null}
-      {overviewError ? <p className="text-sm text-rose-300">{overviewError}</p> : null}
 
       {/* FILTER BAR */}
       <Card
@@ -254,7 +283,11 @@ export default function ScanHistory() {
             style={{ borderColor: "rgba(82,82,91,0.35)", boxShadow: "none" }}
           >
             <CardContent className="py-10 text-center text-sm text-mutetext">
-              No scans found for selected platform.
+              {overviewError
+                ? `Failed to load scan list: ${overviewError}`
+                : summaryError
+                  ? `Failed to load summary: ${summaryError}`
+                  : "No scans found for selected platform."}
             </CardContent>
           </Card>
         ) : null}
@@ -321,6 +354,21 @@ export default function ScanHistory() {
                   </div>
 
                   <div className="max-h-[50vh] overflow-y-auto">
+                    {detailsLoading ? (
+                      <div className="px-4 py-6 text-center text-sm text-mutetext">
+                        Loading details...
+                      </div>
+                    ) : null}
+                    {!detailsLoading && detailsError ? (
+                      <div className="px-4 py-6 text-center text-sm text-rose-300">
+                        {detailsError}
+                      </div>
+                    ) : null}
+                    {!detailsLoading && !detailsError && detailEntries.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-mutetext">
+                        No moderation predictions found for this scan.
+                      </div>
+                    ) : null}
                     {detailEntries.map((entry) => {
                       const decision = entryDecisions[entry.id] ?? null;
                       return (
@@ -495,36 +543,6 @@ function ScanCard({
       </CardContent>
     </Card>
   );
-}
-
-function buildScanDetailEntries(scan: Scan): ScanDetailEntry[] {
-  const normalized = scan.platform.toLowerCase();
-  const baseName = scan.user && scan.user !== "unknown" ? scan.user : `${normalized}_user`;
-  const baseId = scan.id.replace(/[^a-zA-Z0-9]/g, "").slice(-6) || "000001";
-
-  return [
-    {
-      id: `${scan.id}-entry-1`,
-      message: `Suspicious keyword cluster detected in ${scan.target}`,
-      userName: baseName,
-      userId: `${normalized}-${baseId}-01`,
-      risk: scan.threats > 0 ? "Critical" : "Low",
-    },
-    {
-      id: `${scan.id}-entry-2`,
-      message: `Repeated forwarding pattern linked to ${scan.platform} activity`,
-      userName: `${baseName}_alt`,
-      userId: `${normalized}-${baseId}-02`,
-      risk: scan.suspicious > 0 ? "High" : "Low",
-    },
-    {
-      id: `${scan.id}-entry-3`,
-      message: `Message batch reviewed with ${scan.clean} clean records`,
-      userName: `${baseName}_review`,
-      userId: `${normalized}-${baseId}-03`,
-      risk: "Low",
-    },
-  ];
 }
 
 /* ---------------- GLASS STAT ---------------- */
