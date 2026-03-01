@@ -80,13 +80,14 @@ async function getFlaggedUsers(): Promise<FlaggedUser[]> {
 
     const root = asObject(res.body);
     const data = root.data;
-    const rows =
+    const rowsRaw =
       (Array.isArray(data) ? data : null) ??
       (Array.isArray(root.items) ? root.items : null) ??
       (Array.isArray(root.results) ? root.results : null) ??
       (Array.isArray(asObject(data).items) ? asObject(data).items : null) ??
       (Array.isArray(asObject(data).results) ? asObject(data).results : null) ??
       [];
+    const rows: unknown[] = Array.isArray(rowsRaw) ? rowsRaw : [];
 
     return rows.map((row, index) => {
       const item = asObject(row);
