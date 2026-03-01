@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
+import { Dropdown } from "@/components/ui/dropdown";
 import { toast } from "sonner";
 import { get4chanBoards, scrape4chan, type FourChanBoard } from "@/services/4chan";
 import {
@@ -85,6 +85,15 @@ export default function FourCanLiveScanPage() {
   }, []);
 
   const selectedBoard = boards.find((board) => board.id === target);
+  const boardOptions = boards.map((board) => ({
+    label: board.board,
+    value: board.id,
+  }));
+  const boardPlaceholder = isLoadingBoards
+    ? "Loading boards..."
+    : boards.length > 0
+      ? "Select board"
+      : "No boards available";
   const postsScanned = latestFourChanHistory?.messagesScanned ?? 0;
   const threatsDetected = latestFourChanHistory?.threatsDetected ?? 0;
   const suspicious = latestFourChanHistory?.suspicious ?? 0;
@@ -189,25 +198,14 @@ export default function FourCanLiveScanPage() {
             <label className="text-xs font-medium uppercase tracking-[0.08em] text-mutetext">
               Board or Thread
             </label>
-            <Select
-              className="!border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
+            <Dropdown
+              className="w-full"
+              inputClassName="!border-[#2a3a45]/55 !focus:border-[#3f5869]/70 !ring-0"
               value={target}
-              onChange={(event) => setTarget(event.target.value)}
-              disabled={isLoadingBoards || boards.length === 0}
-            >
-              <option value="">
-                {isLoadingBoards
-                  ? "Loading boards..."
-                  : boards.length > 0
-                    ? "Select board"
-                    : "No boards available"}
-              </option>
-              {boards.map((board) => (
-                <option key={board.id} value={board.id}>
-                  {board.board}
-                </option>
-              ))}
-            </Select>
+              onChange={setTarget}
+              options={boardOptions}
+              placeholder={boardPlaceholder}
+            />
             {boardsError ? <p className="text-xs text-rose-300">{boardsError}</p> : null}
           </div>
 
