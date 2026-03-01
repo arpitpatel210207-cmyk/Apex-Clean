@@ -130,7 +130,7 @@ export default function FourCanLiveScanPage() {
       } catch {
         // Monitoring succeeded; keep previous scan result if refresh fails.
       }
-      toast.success(`Monitoring started for ${selectedBoard?.board ?? "selected board"}.`);
+      toast.success(`Successfully scraped `);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to start 4chan monitoring.";

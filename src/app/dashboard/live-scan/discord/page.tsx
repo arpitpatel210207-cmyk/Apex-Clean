@@ -138,9 +138,7 @@ export default function DiscordLiveScanPage() {
         // Monitoring succeeded; keep previous scan result if refresh fails.
       }
       const selectedChannel = channels.find((channel) => channel.id === target);
-      toast.success(
-        `Monitoring started for ${selectedChannel?.title ?? "selected channel"}.`,
-      );
+      toast.success(`Successfully scraped `);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to start Discord monitoring.";
